@@ -9,38 +9,128 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as RecommendationsRouteImport } from './routes/recommendations'
+import { Route as JoinRouteImport } from './routes/join'
+import { Route as CreateRouteImport } from './routes/create'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as GroupIndexRouteImport } from './routes/group.index'
+import { Route as GroupItemIdRouteImport } from './routes/group.$itemId'
 
+const RecommendationsRoute = RecommendationsRouteImport.update({
+  id: '/recommendations',
+  path: '/recommendations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JoinRoute = JoinRouteImport.update({
+  id: '/join',
+  path: '/join',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CreateRoute = CreateRouteImport.update({
+  id: '/create',
+  path: '/create',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GroupIndexRoute = GroupIndexRouteImport.update({
+  id: '/group/',
+  path: '/group/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GroupItemIdRoute = GroupItemIdRouteImport.update({
+  id: '/group/$itemId',
+  path: '/group/$itemId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/create': typeof CreateRoute
+  '/join': typeof JoinRoute
+  '/recommendations': typeof RecommendationsRoute
+  '/group/$itemId': typeof GroupItemIdRoute
+  '/group/': typeof GroupIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/create': typeof CreateRoute
+  '/join': typeof JoinRoute
+  '/recommendations': typeof RecommendationsRoute
+  '/group/$itemId': typeof GroupItemIdRoute
+  '/group': typeof GroupIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/create': typeof CreateRoute
+  '/join': typeof JoinRoute
+  '/recommendations': typeof RecommendationsRoute
+  '/group/$itemId': typeof GroupItemIdRoute
+  '/group/': typeof GroupIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/create'
+    | '/join'
+    | '/recommendations'
+    | '/group/$itemId'
+    | '/group/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/create'
+    | '/join'
+    | '/recommendations'
+    | '/group/$itemId'
+    | '/group'
+  id:
+    | '__root__'
+    | '/'
+    | '/create'
+    | '/join'
+    | '/recommendations'
+    | '/group/$itemId'
+    | '/group/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CreateRoute: typeof CreateRoute
+  JoinRoute: typeof JoinRoute
+  RecommendationsRoute: typeof RecommendationsRoute
+  GroupItemIdRoute: typeof GroupItemIdRoute
+  GroupIndexRoute: typeof GroupIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/recommendations': {
+      id: '/recommendations'
+      path: '/recommendations'
+      fullPath: '/recommendations'
+      preLoaderRoute: typeof RecommendationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/join': {
+      id: '/join'
+      path: '/join'
+      fullPath: '/join'
+      preLoaderRoute: typeof JoinRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/create': {
+      id: '/create'
+      path: '/create'
+      fullPath: '/create'
+      preLoaderRoute: typeof CreateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +138,31 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/group/': {
+      id: '/group/'
+      path: '/group'
+      fullPath: '/group/'
+      preLoaderRoute: typeof GroupIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/group/$itemId': {
+      id: '/group/$itemId'
+      path: '/group/$itemId'
+      fullPath: '/group/$itemId'
+      preLoaderRoute: typeof GroupItemIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CreateRoute: CreateRoute,
+  JoinRoute: JoinRoute,
+  RecommendationsRoute: RecommendationsRoute,
+  GroupItemIdRoute: GroupItemIdRoute,
+  GroupIndexRoute: GroupIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
