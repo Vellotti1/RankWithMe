@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { Home, Users, Sparkles, LogOut, User, ChevronDown } from "lucide-react";
+import { Hop as Home, Users, Sparkles, LogOut, User, ChevronDown } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import {
   DropdownMenu,
