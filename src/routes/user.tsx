@@ -351,29 +351,26 @@ function UserPage() {
                   const isFollowing = following.some((f) => f.following_id === p.id);
                   const isFriend = friends.some((f) => f.following_id === p.id);
                   return (
-                    <div key={p.id} className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3">
+                    <Link key={p.id} to="/user/$userId" params={{ userId: p.id }} className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3 hover:bg-muted transition-colors">
                       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
                         {(p.display_name || p.username || "?").slice(0, 2).toUpperCase()}
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-semibold">{p.display_name || p.username}</p>
-                        <p className="text-xs text-muted-foreground">@{p.username}</p>
+                        <p className="text-xs text-muted-foreground">@{p.username}{isFriend ? " · Friends" : ""}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        {isFriend && <span className="text-xs font-medium text-primary">Friends</span>}
                         <button
                           type="button"
-                          onClick={() => handleFollow(p.id)}
+                          onClick={(e) => { e.preventDefault(); handleFollow(p.id); }}
                           className={`flex items-center gap-1 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-colors ${isFollowing ? "border-border bg-muted text-muted-foreground" : "border-primary bg-primary/10 text-primary hover:bg-primary/20"}`}
                         >
                           {isFollowing ? <UserCheck className="h-3 w-3" /> : <UserPlus className="h-3 w-3" />}
                           {isFollowing ? "Following" : "Follow"}
                         </button>
-                        <Link to="/user/$userId" params={{ userId: p.id }} className="flex items-center justify-center rounded-xl border border-border p-1.5 hover:bg-muted">
-                          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                        </Link>
+                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                       </div>
-                    </div>
+                    </Link>
                   );
                 })}
               </div>

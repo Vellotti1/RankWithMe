@@ -21,9 +21,19 @@ async function callClaude(key: string, prompt: string, maxTokens = 256): Promise
       messages: [{ role: "user", content: prompt }],
     }),
   });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Anthropic API error ${res.status}: ${errText}`);
+  }
   const data = await res.json();
   return data.content?.[0]?.text ?? null;
+}
+
+// Strip markdown code fences that Claude sometimes wraps JSON in
+function extractJson(text: string): string {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenced) return fenced[1].trim();
+  return text.trim();
 }
 
 Deno.serve(async (req: Request) => {
@@ -86,7 +96,7 @@ Write a short, natural 2-3 sentence group consensus summary. Mention the average
 Ratings:
 ${reviewLines}
 
-Respond with JSON only (no markdown, no explanation):
+Respond with JSON only (no markdown fences, no explanation):
 {
   "summary": "2-3 sentence description of their taste — what genres/themes they enjoy, what they rate highly vs poorly. Write in third person as if describing them to someone.",
   "genres": ["genre1", "genre2", "genre3"]
@@ -102,7 +112,7 @@ Genres must be from this list: Action, Adventure, Animation, Comedy, Crime, Docu
       }
 
       try {
-        const parsed = JSON.parse(text);
+        const parsed = JSON.parse(extractJson(text));
 
         // Persist to DB using service role
         const supabaseAdmin = createClient(
@@ -117,9 +127,10 @@ Genres must be from this list: Action, Adventure, Animation, Comedy, Crime, Docu
         return new Response(JSON.stringify({ summary: parsed.summary, genres: parsed.genres }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
-      } catch {
-        return new Response(JSON.stringify({ summary: text, genres: [] }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+      } catch (parseErr) {
+        // Claude returned non-JSON — surface it as an error so it's visible
+        return new Response(JSON.stringify({ error: `JSON parse failed: ${parseErr}`, raw: text }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
     }
@@ -134,7 +145,6 @@ Genres must be from this list: Action, Adventure, Animation, Comedy, Crime, Docu
         });
       }
 
-      // Map genre names to TMDB genre IDs
       const genreMap: Record<string, number> = {
         "Action": 28, "Adventure": 12, "Animation": 16, "Comedy": 35,
         "Crime": 80, "Documentary": 99, "Drama": 18, "Fantasy": 14,
@@ -142,10 +152,8 @@ Genres must be from this list: Action, Adventure, Animation, Comedy, Crime, Docu
         "Thriller": 53, "Western": 37,
       };
       const genreIds = genres.slice(0, 3).map((g: string) => genreMap[g]).filter(Boolean).join(",");
-
       const seenIds = new Set<number>(already_seen_tmdb_ids ?? []);
 
-      // Fetch discover movies and shows in parallel
       const [movRes, tvRes] = await Promise.all([
         fetch(`https://api.themoviedb.org/3/discover/movie?sort_by=vote_average.desc&vote_count.gte=200&with_genres=${genreIds}&language=en-US&page=1`, {
           headers: { Authorization: `Bearer ${TMDB_KEY}` },
@@ -177,7 +185,6 @@ Genres must be from this list: Action, Adventure, Animation, Comedy, Crime, Docu
           vote_average: r.vote_average,
         }));
 
-      // Interleave and return top 12
       const results: any[] = [];
       const max = Math.max(movies.length, shows.length);
       for (let i = 0; i < max; i++) {

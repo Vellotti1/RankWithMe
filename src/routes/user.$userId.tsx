@@ -145,7 +145,7 @@ function FriendProfilePage() {
   return (
     <AppShell>
       <div className="px-5 pt-5">
-        <button type="button" onClick={() => navigate({ to: ".." as any })} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+        <button type="button" onClick={() => window.history.back()} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
           <ChevronLeft className="h-3.5 w-3.5" /> Back
         </button>
       </div>

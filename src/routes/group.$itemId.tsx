@@ -321,92 +321,45 @@ function GroupDetailPage() {
       {/* Rankings tab */}
       {activeTab === "rankings" && (
         <section className="mt-4 px-5 pb-4">
-          {(() => {
-            const visibleItems = isOwner ? mediaItems : mediaItems.filter((i) => !(i as any).is_hidden);
-            const hiddenItems = mediaItems.filter((i) => (i as any).is_hidden);
-            return (
-              <>
-                <div className="mb-3 flex items-center justify-between">
-                  <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">{visibleItems.length} titles</h2>
-                  {isMember && <Button size="sm" variant="outline" onClick={() => setAddOpen(true)} className="h-8 gap-1 text-xs"><Plus className="h-3.5 w-3.5" /> Add title</Button>}
-                </div>
-                {pageLoading ? (
-                  <div className="flex flex-col gap-3">{[1, 2, 3].map((i) => <div key={i} className="h-20 animate-pulse rounded-2xl bg-muted" />)}</div>
-                ) : visibleItems.length === 0 ? (
-                  <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border py-10 text-center">
-                    <p className="text-sm font-medium">No titles yet</p>
-                    <p className="text-xs text-muted-foreground">Add the first movie or show to rank.</p>
-                    {isMember && <Button size="sm" onClick={() => setAddOpen(true)}><Plus className="h-4 w-4 mr-1" /> Add title</Button>}
-                  </div>
-                ) : (
-                  <ol className="space-y-2">
-                    {visibleItems.map((item, idx) => {
-                      const poster = item.tmdb_poster_path ? tmdbPosterUrl(item.tmdb_poster_path, "w154") : item.poster_url;
-                      const isHidden = (item as any).is_hidden;
-                      return (
-                        <li key={item.id} className="relative">
-                          <Link to="/media/$groupId/$mediaId" params={{ groupId, mediaId: item.id }}
-                            className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-3 text-left transition-colors hover:bg-muted">
-                            <span className="w-5 shrink-0 text-center text-sm font-bold text-muted-foreground">{idx + 1}</span>
-                            {poster ? <img src={poster} alt={item.title} className="h-16 w-11 shrink-0 rounded-md object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : (
-                              <div className="flex h-16 w-11 shrink-0 items-center justify-center rounded-md bg-muted">
-                                {item.media_type === "movie" ? <Film className="h-5 w-5 text-muted-foreground" /> : <Tv className="h-5 w-5 text-muted-foreground" />}
-                              </div>
-                            )}
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-semibold">{item.title}</p>
-                              <p className="mt-0.5 text-[11px] uppercase tracking-wider text-muted-foreground">{item.media_type} · {item.year ?? "—"} · {item.review_count} {item.review_count === 1 ? "rating" : "ratings"}</p>
-                            </div>
-                            {item.review_count > 0 ? <ScoreBadge score={item.avg} size="md" /> : <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">—</span>}
-                          </Link>
-                          {isOwner && (
-                            <button type="button" onClick={() => handleToggleHide(item.id, !!isHidden)}
-                              className="absolute right-11 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                              title={isHidden ? "Show" : "Hide"}>
-                              {isHidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-                            </button>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ol>
-                )}
-                {isOwner && hiddenItems.length > 0 && (
-                  <div className="mt-4">
-                    <button type="button" onClick={() => setShowHiddenPanel(!showHiddenPanel)}
-                      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                      <EyeOff className="h-3.5 w-3.5" />
-                      {showHiddenPanel ? "Hide" : "Show"} hidden titles ({hiddenItems.length})
-                    </button>
-                    {showHiddenPanel && (
-                      <div className="mt-2 space-y-2">
-                        {hiddenItems.map((item) => {
-                          const poster = item.tmdb_poster_path ? tmdbPosterUrl(item.tmdb_poster_path, "w154") : item.poster_url;
-                          return (
-                            <div key={item.id} className="flex items-center gap-3 rounded-2xl border border-dashed border-border bg-card/50 p-3 opacity-60">
-                              {poster ? <img src={poster} alt={item.title} className="h-12 w-8 shrink-0 rounded-md object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : (
-                                <div className="flex h-12 w-8 shrink-0 items-center justify-center rounded-md bg-muted">
-                                  {item.media_type === "movie" ? <Film className="h-4 w-4 text-muted-foreground" /> : <Tv className="h-4 w-4 text-muted-foreground" />}
-                                </div>
-                              )}
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-semibold">{item.title}</p>
-                                <p className="text-[11px] text-muted-foreground capitalize">{item.media_type} · {item.year ?? "—"}</p>
-                              </div>
-                              <button type="button" onClick={() => handleToggleHide(item.id, true)}
-                                className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium hover:bg-muted">
-                                <Eye className="h-3 w-3" /> Show
-                              </button>
-                            </div>
-                          );
-                        })}
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+              {mediaItems.filter((i) => !(i as any).is_hidden).length} titles
+            </h2>
+            {isMember && <Button size="sm" variant="outline" onClick={() => setAddOpen(true)} className="h-8 gap-1 text-xs"><Plus className="h-3.5 w-3.5" /> Add title</Button>}
+          </div>
+          {pageLoading ? (
+            <div className="flex flex-col gap-3">{[1, 2, 3].map((i) => <div key={i} className="h-20 animate-pulse rounded-2xl bg-muted" />)}</div>
+          ) : mediaItems.filter((i) => !(i as any).is_hidden).length === 0 ? (
+            <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border py-10 text-center">
+              <p className="text-sm font-medium">No titles yet</p>
+              <p className="text-xs text-muted-foreground">Add the first movie or show to rank.</p>
+              {isMember && <Button size="sm" onClick={() => setAddOpen(true)}><Plus className="h-4 w-4 mr-1" /> Add title</Button>}
+            </div>
+          ) : (
+            <ol className="space-y-2">
+              {mediaItems.filter((i) => !(i as any).is_hidden).map((item, idx) => {
+                const poster = item.tmdb_poster_path ? tmdbPosterUrl(item.tmdb_poster_path, "w154") : item.poster_url;
+                return (
+                  <li key={item.id}>
+                    <Link to="/media/$groupId/$mediaId" params={{ groupId, mediaId: item.id }}
+                      className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-3 text-left transition-colors hover:bg-muted">
+                      <span className="w-5 shrink-0 text-center text-sm font-bold text-muted-foreground">{idx + 1}</span>
+                      {poster ? <img src={poster} alt={item.title} className="h-16 w-11 shrink-0 rounded-md object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : (
+                        <div className="flex h-16 w-11 shrink-0 items-center justify-center rounded-md bg-muted">
+                          {item.media_type === "movie" ? <Film className="h-5 w-5 text-muted-foreground" /> : <Tv className="h-5 w-5 text-muted-foreground" />}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold">{item.title}</p>
+                        <p className="mt-0.5 text-[11px] uppercase tracking-wider text-muted-foreground">{item.media_type} · {item.year ?? "—"} · {item.review_count} {item.review_count === 1 ? "rating" : "ratings"}</p>
                       </div>
-                    )}
-                  </div>
-                )}
-              </>
-            );
-          })()}
+                      {item.review_count > 0 ? <ScoreBadge score={item.avg} size="md" /> : <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">—</span>}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
         </section>
       )}
 
@@ -492,7 +445,10 @@ function GroupDetailPage() {
                       <div className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground max-w-xs text-center">
                         <Star className="h-3 w-3 text-amber-500 shrink-0" />
                         <span>
-                          <Link to="/user/$userId" params={{ userId: msg.user_id! }} className="font-semibold text-foreground hover:text-primary">{senderName}</Link>
+                          {msg.user_id === user.id
+                            ? <Link to="/user" className="font-semibold text-foreground hover:text-primary">{senderName}</Link>
+                            : <Link to="/user/$userId" params={{ userId: msg.user_id! }} className="font-semibold text-foreground hover:text-primary">{senderName}</Link>
+                          }
                           {" "}rated{" "}
                           <span className="font-semibold text-foreground">{meta.title}</span>
                           {" "}<span className="font-bold text-primary">{meta.score}/100</span>
@@ -612,6 +568,37 @@ function GroupDetailPage() {
         <SheetContent side="bottom" className="rounded-t-3xl border-border bg-card max-h-[90vh] overflow-y-auto">
           <SheetHeader><SheetTitle>Edit group</SheetTitle></SheetHeader>
           <div className="mt-4 space-y-4 pb-6">
+            {/* Hide/show titles */}
+            {mediaItems.length > 0 && (
+              <div>
+                <h3 className="mb-2 text-sm font-semibold">Visible titles</h3>
+                <p className="mb-3 text-xs text-muted-foreground">Hidden titles won't appear in Rankings for members. Only you can see and restore them.</p>
+                <div className="space-y-2">
+                  {mediaItems.map((item) => {
+                    const isHidden = (item as any).is_hidden;
+                    const poster = item.tmdb_poster_path ? tmdbPosterUrl(item.tmdb_poster_path, "w92") : item.poster_url;
+                    return (
+                      <div key={item.id} className={`flex items-center gap-3 rounded-xl border px-3 py-2 transition-opacity ${isHidden ? "border-dashed border-border opacity-50" : "border-border bg-background"}`}>
+                        {poster ? <img src={poster} alt={item.title} className="h-10 w-7 shrink-0 rounded object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : (
+                          <div className="flex h-10 w-7 shrink-0 items-center justify-center rounded bg-muted">
+                            {item.media_type === "movie" ? <Film className="h-3 w-3 text-muted-foreground" /> : <Tv className="h-3 w-3 text-muted-foreground" />}
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium">{item.title}</p>
+                          <p className="text-[11px] capitalize text-muted-foreground">{item.media_type} · {item.year ?? "—"}</p>
+                        </div>
+                        <button type="button" onClick={() => handleToggleHide(item.id, !!isHidden)}
+                          className={`flex shrink-0 items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${isHidden ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20" : "border-border hover:bg-muted"}`}>
+                          {isHidden ? <><Eye className="h-3 w-3" /> Show</> : <><EyeOff className="h-3 w-3" /> Hide</>}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="mt-3 border-t border-border" />
+              </div>
+            )}
             <div><label className="text-sm font-medium">Group name</label><Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Group name" className="mt-1.5" /></div>
             <div><label className="text-sm font-medium">Description</label><Textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder="What does this group watch?" className="mt-1.5 resize-none" rows={3} /></div>
             <div>
@@ -637,15 +624,27 @@ function GroupDetailPage() {
               <div className="space-y-2">
                 {members.map((m) => (
                   <div key={m.id} className="flex items-center justify-between rounded-xl border border-border bg-background px-3 py-2.5">
-                    <Link to="/user/$userId" params={{ userId: m.user_id }} onClick={() => setEditOpen(false)} className="flex items-center gap-2.5 hover:opacity-80 transition-opacity min-w-0 flex-1">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-                        {(m.profiles?.display_name || m.profiles?.username || "?").slice(0, 2).toUpperCase()}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{m.profiles?.display_name || m.profiles?.username}{m.user_id === user.id && <span className="ml-1.5 text-xs text-muted-foreground">(you)</span>}</p>
-                        <p className="text-xs capitalize text-muted-foreground">{m.role}</p>
-                      </div>
-                    </Link>
+                    {m.user_id === user.id ? (
+                      <Link to="/user" onClick={() => setEditOpen(false)} className="flex items-center gap-2.5 hover:opacity-80 transition-opacity min-w-0 flex-1">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+                          {(m.profiles?.display_name || m.profiles?.username || "?").slice(0, 2).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{m.profiles?.display_name || m.profiles?.username}<span className="ml-1.5 text-xs text-muted-foreground">(you)</span></p>
+                          <p className="text-xs capitalize text-muted-foreground">{m.role}</p>
+                        </div>
+                      </Link>
+                    ) : (
+                      <Link to="/user/$userId" params={{ userId: m.user_id }} onClick={() => setEditOpen(false)} className="flex items-center gap-2.5 hover:opacity-80 transition-opacity min-w-0 flex-1">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+                          {(m.profiles?.display_name || m.profiles?.username || "?").slice(0, 2).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{m.profiles?.display_name || m.profiles?.username}</p>
+                          <p className="text-xs capitalize text-muted-foreground">{m.role}</p>
+                        </div>
+                      </Link>
+                    )}
                     {m.user_id !== user.id && (
                       <button type="button" onClick={() => handleRemoveMember(m.id, m.user_id)} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-destructive hover:bg-destructive/10 transition-colors ml-2"><Trash2 className="h-3.5 w-3.5" /></button>
                     )}
