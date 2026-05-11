@@ -57,7 +57,35 @@ export type Review = {
   updated_at: string;
 };
 
+export type Episode = {
+  id: string;
+  media_item_id: string;
+  tmdb_episode_id: number | null;
+  season_number: number;
+  episode_number: number;
+  title: string;
+  overview: string;
+  still_path: string | null;
+  air_date: string | null;
+  created_at: string;
+};
+
+export type EpisodeReview = {
+  id: string;
+  episode_id: string;
+  user_id: string;
+  score: number;
+  text: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export function tmdbPosterUrl(path: string | null | undefined, size = 'w342'): string {
+  if (!path) return '';
+  return `https://image.tmdb.org/t/p/${size}${path}`;
+}
+
+export function tmdbStillUrl(path: string | null | undefined, size = 'w300'): string {
   if (!path) return '';
   return `https://image.tmdb.org/t/p/${size}${path}`;
 }

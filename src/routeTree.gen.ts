@@ -18,7 +18,8 @@ import { Route as CreateRouteImport } from './routes/create'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as GroupIndexRouteImport } from './routes/group.index'
 import { Route as GroupItemIdRouteImport } from './routes/group.$itemId'
-import { Route as GroupItemIdMediaIdRouteImport } from './routes/group.$itemId.$mediaId'
+import { Route as MediaGroupIdMediaIdRouteImport } from './routes/media.$groupId.$mediaId'
+import { Route as EpisodeGroupIdMediaIdEpisodeIdRouteImport } from './routes/episode.$groupId.$mediaId.$episodeId'
 
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
@@ -65,11 +66,17 @@ const GroupItemIdRoute = GroupItemIdRouteImport.update({
   path: '/group/$itemId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const GroupItemIdMediaIdRoute = GroupItemIdMediaIdRouteImport.update({
-  id: '/$mediaId',
-  path: '/$mediaId',
-  getParentRoute: () => GroupItemIdRoute,
+const MediaGroupIdMediaIdRoute = MediaGroupIdMediaIdRouteImport.update({
+  id: '/media/$groupId/$mediaId',
+  path: '/media/$groupId/$mediaId',
+  getParentRoute: () => rootRouteImport,
 } as any)
+const EpisodeGroupIdMediaIdEpisodeIdRoute =
+  EpisodeGroupIdMediaIdEpisodeIdRouteImport.update({
+    id: '/episode/$groupId/$mediaId/$episodeId',
+    path: '/episode/$groupId/$mediaId/$episodeId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -79,9 +86,10 @@ export interface FileRoutesByFullPath {
   '/profile': typeof ProfileRoute
   '/recommendations': typeof RecommendationsRoute
   '/register': typeof RegisterRoute
-  '/group/$itemId': typeof GroupItemIdRouteWithChildren
+  '/group/$itemId': typeof GroupItemIdRoute
   '/group/': typeof GroupIndexRoute
-  '/group/$itemId/$mediaId': typeof GroupItemIdMediaIdRoute
+  '/media/$groupId/$mediaId': typeof MediaGroupIdMediaIdRoute
+  '/episode/$groupId/$mediaId/$episodeId': typeof EpisodeGroupIdMediaIdEpisodeIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -91,9 +99,10 @@ export interface FileRoutesByTo {
   '/profile': typeof ProfileRoute
   '/recommendations': typeof RecommendationsRoute
   '/register': typeof RegisterRoute
-  '/group/$itemId': typeof GroupItemIdRouteWithChildren
+  '/group/$itemId': typeof GroupItemIdRoute
   '/group': typeof GroupIndexRoute
-  '/group/$itemId/$mediaId': typeof GroupItemIdMediaIdRoute
+  '/media/$groupId/$mediaId': typeof MediaGroupIdMediaIdRoute
+  '/episode/$groupId/$mediaId/$episodeId': typeof EpisodeGroupIdMediaIdEpisodeIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -104,9 +113,10 @@ export interface FileRoutesById {
   '/profile': typeof ProfileRoute
   '/recommendations': typeof RecommendationsRoute
   '/register': typeof RegisterRoute
-  '/group/$itemId': typeof GroupItemIdRouteWithChildren
+  '/group/$itemId': typeof GroupItemIdRoute
   '/group/': typeof GroupIndexRoute
-  '/group/$itemId/$mediaId': typeof GroupItemIdMediaIdRoute
+  '/media/$groupId/$mediaId': typeof MediaGroupIdMediaIdRoute
+  '/episode/$groupId/$mediaId/$episodeId': typeof EpisodeGroupIdMediaIdEpisodeIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -120,7 +130,8 @@ export interface FileRouteTypes {
     | '/register'
     | '/group/$itemId'
     | '/group/'
-    | '/group/$itemId/$mediaId'
+    | '/media/$groupId/$mediaId'
+    | '/episode/$groupId/$mediaId/$episodeId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -132,7 +143,8 @@ export interface FileRouteTypes {
     | '/register'
     | '/group/$itemId'
     | '/group'
-    | '/group/$itemId/$mediaId'
+    | '/media/$groupId/$mediaId'
+    | '/episode/$groupId/$mediaId/$episodeId'
   id:
     | '__root__'
     | '/'
@@ -144,7 +156,8 @@ export interface FileRouteTypes {
     | '/register'
     | '/group/$itemId'
     | '/group/'
-    | '/group/$itemId/$mediaId'
+    | '/media/$groupId/$mediaId'
+    | '/episode/$groupId/$mediaId/$episodeId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -155,8 +168,10 @@ export interface RootRouteChildren {
   ProfileRoute: typeof ProfileRoute
   RecommendationsRoute: typeof RecommendationsRoute
   RegisterRoute: typeof RegisterRoute
-  GroupItemIdRoute: typeof GroupItemIdRouteWithChildren
+  GroupItemIdRoute: typeof GroupItemIdRoute
   GroupIndexRoute: typeof GroupIndexRoute
+  MediaGroupIdMediaIdRoute: typeof MediaGroupIdMediaIdRoute
+  EpisodeGroupIdMediaIdEpisodeIdRoute: typeof EpisodeGroupIdMediaIdEpisodeIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -224,27 +239,22 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GroupItemIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/group/$itemId/$mediaId': {
-      id: '/group/$itemId/$mediaId'
-      path: '/$mediaId'
-      fullPath: '/group/$itemId/$mediaId'
-      preLoaderRoute: typeof GroupItemIdMediaIdRouteImport
-      parentRoute: typeof GroupItemIdRoute
+    '/media/$groupId/$mediaId': {
+      id: '/media/$groupId/$mediaId'
+      path: '/media/$groupId/$mediaId'
+      fullPath: '/media/$groupId/$mediaId'
+      preLoaderRoute: typeof MediaGroupIdMediaIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/episode/$groupId/$mediaId/$episodeId': {
+      id: '/episode/$groupId/$mediaId/$episodeId'
+      path: '/episode/$groupId/$mediaId/$episodeId'
+      fullPath: '/episode/$groupId/$mediaId/$episodeId'
+      preLoaderRoute: typeof EpisodeGroupIdMediaIdEpisodeIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
   }
 }
-
-interface GroupItemIdRouteChildren {
-  GroupItemIdMediaIdRoute: typeof GroupItemIdMediaIdRoute
-}
-
-const GroupItemIdRouteChildren: GroupItemIdRouteChildren = {
-  GroupItemIdMediaIdRoute: GroupItemIdMediaIdRoute,
-}
-
-const GroupItemIdRouteWithChildren = GroupItemIdRoute._addFileChildren(
-  GroupItemIdRouteChildren,
-)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -254,8 +264,10 @@ const rootRouteChildren: RootRouteChildren = {
   ProfileRoute: ProfileRoute,
   RecommendationsRoute: RecommendationsRoute,
   RegisterRoute: RegisterRoute,
-  GroupItemIdRoute: GroupItemIdRouteWithChildren,
+  GroupItemIdRoute: GroupItemIdRoute,
   GroupIndexRoute: GroupIndexRoute,
+  MediaGroupIdMediaIdRoute: MediaGroupIdMediaIdRoute,
+  EpisodeGroupIdMediaIdEpisodeIdRoute: EpisodeGroupIdMediaIdEpisodeIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

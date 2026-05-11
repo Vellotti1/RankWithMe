@@ -326,8 +326,8 @@ function GroupDetailPage() {
               return (
                 <li key={item.id}>
                   <Link
-                    to="/group/$itemId/$mediaId"
-                    params={{ itemId: groupId, mediaId: item.id }}
+                    to="/media/$groupId/$mediaId"
+                    params={{ groupId: groupId, mediaId: item.id }}
                     className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-3 text-left transition-colors hover:bg-muted"
                   >
                     <span className="w-5 shrink-0 text-center text-sm font-bold text-muted-foreground">
