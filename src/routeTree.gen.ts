@@ -18,6 +18,7 @@ import { Route as CreateRouteImport } from './routes/create'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as GroupIndexRouteImport } from './routes/group.index'
 import { Route as GroupItemIdRouteImport } from './routes/group.$itemId'
+import { Route as GroupItemIdMediaIdRouteImport } from './routes/group.$itemId.$mediaId'
 
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
@@ -64,6 +65,11 @@ const GroupItemIdRoute = GroupItemIdRouteImport.update({
   path: '/group/$itemId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GroupItemIdMediaIdRoute = GroupItemIdMediaIdRouteImport.update({
+  id: '/$mediaId',
+  path: '/$mediaId',
+  getParentRoute: () => GroupItemIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -73,8 +79,9 @@ export interface FileRoutesByFullPath {
   '/profile': typeof ProfileRoute
   '/recommendations': typeof RecommendationsRoute
   '/register': typeof RegisterRoute
-  '/group/$itemId': typeof GroupItemIdRoute
+  '/group/$itemId': typeof GroupItemIdRouteWithChildren
   '/group/': typeof GroupIndexRoute
+  '/group/$itemId/$mediaId': typeof GroupItemIdMediaIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -84,8 +91,9 @@ export interface FileRoutesByTo {
   '/profile': typeof ProfileRoute
   '/recommendations': typeof RecommendationsRoute
   '/register': typeof RegisterRoute
-  '/group/$itemId': typeof GroupItemIdRoute
+  '/group/$itemId': typeof GroupItemIdRouteWithChildren
   '/group': typeof GroupIndexRoute
+  '/group/$itemId/$mediaId': typeof GroupItemIdMediaIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -96,8 +104,9 @@ export interface FileRoutesById {
   '/profile': typeof ProfileRoute
   '/recommendations': typeof RecommendationsRoute
   '/register': typeof RegisterRoute
-  '/group/$itemId': typeof GroupItemIdRoute
+  '/group/$itemId': typeof GroupItemIdRouteWithChildren
   '/group/': typeof GroupIndexRoute
+  '/group/$itemId/$mediaId': typeof GroupItemIdMediaIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -111,6 +120,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/group/$itemId'
     | '/group/'
+    | '/group/$itemId/$mediaId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -122,6 +132,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/group/$itemId'
     | '/group'
+    | '/group/$itemId/$mediaId'
   id:
     | '__root__'
     | '/'
@@ -133,6 +144,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/group/$itemId'
     | '/group/'
+    | '/group/$itemId/$mediaId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -143,7 +155,7 @@ export interface RootRouteChildren {
   ProfileRoute: typeof ProfileRoute
   RecommendationsRoute: typeof RecommendationsRoute
   RegisterRoute: typeof RegisterRoute
-  GroupItemIdRoute: typeof GroupItemIdRoute
+  GroupItemIdRoute: typeof GroupItemIdRouteWithChildren
   GroupIndexRoute: typeof GroupIndexRoute
 }
 
@@ -212,8 +224,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GroupItemIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/group/$itemId/$mediaId': {
+      id: '/group/$itemId/$mediaId'
+      path: '/$mediaId'
+      fullPath: '/group/$itemId/$mediaId'
+      preLoaderRoute: typeof GroupItemIdMediaIdRouteImport
+      parentRoute: typeof GroupItemIdRoute
+    }
   }
 }
+
+interface GroupItemIdRouteChildren {
+  GroupItemIdMediaIdRoute: typeof GroupItemIdMediaIdRoute
+}
+
+const GroupItemIdRouteChildren: GroupItemIdRouteChildren = {
+  GroupItemIdMediaIdRoute: GroupItemIdMediaIdRoute,
+}
+
+const GroupItemIdRouteWithChildren = GroupItemIdRoute._addFileChildren(
+  GroupItemIdRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -223,7 +254,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProfileRoute: ProfileRoute,
   RecommendationsRoute: RecommendationsRoute,
   RegisterRoute: RegisterRoute,
-  GroupItemIdRoute: GroupItemIdRoute,
+  GroupItemIdRoute: GroupItemIdRouteWithChildren,
   GroupIndexRoute: GroupIndexRoute,
 }
 export const routeTree = rootRouteImport

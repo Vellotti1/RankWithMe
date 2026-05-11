@@ -21,6 +21,7 @@ export type Group = {
   owner_id: string;
   is_public: boolean;
   view_count: number;
+  image_url: string;
   created_at: string;
 };
 
@@ -39,6 +40,8 @@ export type MediaItem = {
   year: number | null;
   media_type: 'movie' | 'show';
   poster_url: string;
+  tmdb_id: number | null;
+  tmdb_poster_path: string | null;
   description: string;
   added_by: string;
   created_at: string;
@@ -53,3 +56,8 @@ export type Review = {
   created_at: string;
   updated_at: string;
 };
+
+export function tmdbPosterUrl(path: string | null | undefined, size = 'w342'): string {
+  if (!path) return '';
+  return `https://image.tmdb.org/t/p/${size}${path}`;
+}
