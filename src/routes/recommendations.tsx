@@ -8,7 +8,7 @@ import { supabase, type MediaItem } from "@/lib/supabase";
 export const Route = createFileRoute("/recommendations")({
   head: () => ({
     meta: [
-      { title: "For You — RankWithMe" },
+      { title: "For You — Kritiq" },
       { name: "description", content: "Discover what to watch next based on your group's ratings." },
     ],
   }),

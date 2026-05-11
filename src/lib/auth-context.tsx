@@ -59,14 +59,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signUp(email: string, password: string, username: string, displayName: string) {
-    const { error } = await supabase.auth.signUp({
+    // Check username availability first
+    const { data: existing } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("username", username)
+      .maybeSingle();
+
+    if (existing) {
+      return { error: "Username is already taken. Please choose another." };
+    }
+
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: { username, display_name: displayName },
+        emailRedirectTo: undefined,
       },
     });
-    return { error: error?.message ?? null };
+
+    if (error) return { error: error.message };
+
+    // If the user is immediately confirmed (no email verification required),
+    // sign them in right away so the session is active.
+    if (data.session) {
+      setSession(data.session);
+      setUser(data.user);
+      if (data.user) await loadProfile(data.user.id);
+    } else if (data.user && !data.session) {
+      // Email confirmation is enabled — sign the user in manually
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInError) return { error: null }; // account created, but sign-in may need email confirmation
+    }
+
+    return { error: null };
   }
 
   async function signOut() {

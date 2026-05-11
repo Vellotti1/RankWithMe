@@ -29,7 +29,7 @@ function RegisterPage() {
     if (error) {
       toast.error(error);
     } else {
-      toast.success("Account created! Welcome to RankWithMe.");
+      toast.success("Account created! Welcome to Kritiq.");
       navigate({ to: "/" });
     }
   }
@@ -118,3 +118,6 @@ function RegisterPage() {
     </div>
   );
 }
+
+
+export { Route }

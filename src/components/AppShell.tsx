@@ -42,7 +42,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 "conic-gradient(from 220deg, var(--color-primary), var(--color-accent), var(--color-primary))",
             }}
           />
-          <span className="text-base font-bold tracking-tight">RankWithMe</span>
+          <span className="text-base font-bold tracking-tight">Kritiq</span>
         </Link>
 
         <DropdownMenu>

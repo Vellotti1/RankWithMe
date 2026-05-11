@@ -40,7 +40,7 @@ function LoginPage() {
             <Film className="h-7 w-7 text-primary-foreground" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
-          <p className="text-sm text-muted-foreground">Sign in to your RankWithMe account</p>
+          <p className="text-sm text-muted-foreground">Sign in to your Kritiq account</p>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">

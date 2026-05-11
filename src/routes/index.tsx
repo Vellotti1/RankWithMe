@@ -94,7 +94,7 @@ function HomePage() {
                 <Film className="h-5 w-5 text-primary-foreground" />
               </div>
               <span className="text-xs font-semibold uppercase tracking-widest text-primary">
-                RankWithMe
+                Kritiq
               </span>
             </div>
             <h1 className="text-3xl font-bold leading-tight tracking-tight">

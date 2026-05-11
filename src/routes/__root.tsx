@@ -74,10 +74,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "RankWithMe — Rank movies & shows with friends" },
+      { title: "Kritiq — Rank movies & shows with friends" },
       { name: "description", content: "Rank, review, and discover movies and shows with your friends." },
-      { name: "author", content: "RankWithMe" },
-      { property: "og:title", content: "RankWithMe" },
+      { name: "author", content: "Kritiq" },
+      { property: "og:title", content: "Kritiq" },
       { property: "og:description", content: "Rank, review, and discover movies and shows with your friends." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
