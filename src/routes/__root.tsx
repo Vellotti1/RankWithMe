@@ -9,6 +9,7 @@ import {
 } from "@tanstack/react-router";
 
 import appCss from "../styles.css?url";
+import { CurrentUserProvider } from "@/lib/current-user";
 
 function NotFoundComponent() {
   return (
