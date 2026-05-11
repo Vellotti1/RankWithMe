@@ -1,9 +1,7 @@
-import { Link, useLocation } from "@tanstack/react-router";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { Home, Users, Sparkles, ChevronDown } from "lucide-react";
-import { useCurrentUser } from "@/lib/current-user";
-import { MEMBERS } from "@/lib/mock-data";
-import { Avatar } from "./Avatar";
+import { Home, Users, Sparkles, LogOut, User, ChevronDown } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,14 +12,24 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { user, setUserId } = useCurrentUser();
+  const { profile, signOut } = useAuth();
   const { pathname } = useLocation();
+  const navigate = useNavigate();
 
   const tabs = [
     { to: "/", label: "Home", icon: Home },
-    { to: "/group", label: "Group", icon: Users },
+    { to: "/group", label: "Groups", icon: Users },
     { to: "/recommendations", label: "For You", icon: Sparkles },
   ] as const;
+
+  const initials = profile?.display_name
+    ? profile.display_name.slice(0, 2).toUpperCase()
+    : profile?.username?.slice(0, 2).toUpperCase() ?? "?";
+
+  async function handleSignOut() {
+    await signOut();
+    navigate({ to: "/login" });
+  }
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
@@ -39,23 +47,26 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <DropdownMenu>
           <DropdownMenuTrigger className="flex items-center gap-2 rounded-full border border-border bg-card px-2 py-1 text-sm font-medium hover:bg-muted">
-            <Avatar member={user} size={26} />
-            <span>{user.name}</span>
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+              {initials}
+            </div>
+            <span className="max-w-[96px] truncate">{profile?.display_name || profile?.username || "Account"}</span>
             <ChevronDown className="h-3.5 w-3.5 opacity-60" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuLabel>Viewing as</DropdownMenuLabel>
+            <DropdownMenuLabel className="text-xs text-muted-foreground">@{profile?.username}</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {MEMBERS.map((m) => (
-              <DropdownMenuItem
-                key={m.id}
-                onClick={() => setUserId(m.id)}
-                className="flex items-center gap-2"
-              >
-                <Avatar member={m} size={22} />
-                <span>{m.name}</span>
-              </DropdownMenuItem>
-            ))}
+            <DropdownMenuItem asChild>
+              <Link to="/profile" className="flex items-center gap-2 cursor-pointer">
+                <User className="h-4 w-4" />
+                Profile
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleSignOut} className="flex items-center gap-2 text-destructive focus:text-destructive">
+              <LogOut className="h-4 w-4" />
+              Sign out
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </header>
