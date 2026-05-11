@@ -118,6 +118,3 @@ function RegisterPage() {
     </div>
   );
 }
-
-
-export { Route }
