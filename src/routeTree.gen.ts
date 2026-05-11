@@ -9,6 +9,8 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as UserRouteImport } from './routes/user'
+import { Route as ReviewRouteImport } from './routes/review'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as RecommendationsRouteImport } from './routes/recommendations'
 import { Route as ProfileRouteImport } from './routes/profile'
@@ -17,10 +19,21 @@ import { Route as JoinRouteImport } from './routes/join'
 import { Route as CreateRouteImport } from './routes/create'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as GroupIndexRouteImport } from './routes/group.index'
+import { Route as UserUserIdRouteImport } from './routes/user.$userId'
 import { Route as GroupItemIdRouteImport } from './routes/group.$itemId'
 import { Route as MediaGroupIdMediaIdRouteImport } from './routes/media.$groupId.$mediaId'
 import { Route as EpisodeGroupIdMediaIdEpisodeIdRouteImport } from './routes/episode.$groupId.$mediaId.$episodeId'
 
+const UserRoute = UserRouteImport.update({
+  id: '/user',
+  path: '/user',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReviewRoute = ReviewRouteImport.update({
+  id: '/review',
+  path: '/review',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
   path: '/register',
@@ -61,6 +74,11 @@ const GroupIndexRoute = GroupIndexRouteImport.update({
   path: '/group/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const UserUserIdRoute = UserUserIdRouteImport.update({
+  id: '/$userId',
+  path: '/$userId',
+  getParentRoute: () => UserRoute,
+} as any)
 const GroupItemIdRoute = GroupItemIdRouteImport.update({
   id: '/group/$itemId',
   path: '/group/$itemId',
@@ -86,7 +104,10 @@ export interface FileRoutesByFullPath {
   '/profile': typeof ProfileRoute
   '/recommendations': typeof RecommendationsRoute
   '/register': typeof RegisterRoute
+  '/review': typeof ReviewRoute
+  '/user': typeof UserRouteWithChildren
   '/group/$itemId': typeof GroupItemIdRoute
+  '/user/$userId': typeof UserUserIdRoute
   '/group/': typeof GroupIndexRoute
   '/media/$groupId/$mediaId': typeof MediaGroupIdMediaIdRoute
   '/episode/$groupId/$mediaId/$episodeId': typeof EpisodeGroupIdMediaIdEpisodeIdRoute
@@ -99,7 +120,10 @@ export interface FileRoutesByTo {
   '/profile': typeof ProfileRoute
   '/recommendations': typeof RecommendationsRoute
   '/register': typeof RegisterRoute
+  '/review': typeof ReviewRoute
+  '/user': typeof UserRouteWithChildren
   '/group/$itemId': typeof GroupItemIdRoute
+  '/user/$userId': typeof UserUserIdRoute
   '/group': typeof GroupIndexRoute
   '/media/$groupId/$mediaId': typeof MediaGroupIdMediaIdRoute
   '/episode/$groupId/$mediaId/$episodeId': typeof EpisodeGroupIdMediaIdEpisodeIdRoute
@@ -113,7 +137,10 @@ export interface FileRoutesById {
   '/profile': typeof ProfileRoute
   '/recommendations': typeof RecommendationsRoute
   '/register': typeof RegisterRoute
+  '/review': typeof ReviewRoute
+  '/user': typeof UserRouteWithChildren
   '/group/$itemId': typeof GroupItemIdRoute
+  '/user/$userId': typeof UserUserIdRoute
   '/group/': typeof GroupIndexRoute
   '/media/$groupId/$mediaId': typeof MediaGroupIdMediaIdRoute
   '/episode/$groupId/$mediaId/$episodeId': typeof EpisodeGroupIdMediaIdEpisodeIdRoute
@@ -128,7 +155,10 @@ export interface FileRouteTypes {
     | '/profile'
     | '/recommendations'
     | '/register'
+    | '/review'
+    | '/user'
     | '/group/$itemId'
+    | '/user/$userId'
     | '/group/'
     | '/media/$groupId/$mediaId'
     | '/episode/$groupId/$mediaId/$episodeId'
@@ -141,7 +171,10 @@ export interface FileRouteTypes {
     | '/profile'
     | '/recommendations'
     | '/register'
+    | '/review'
+    | '/user'
     | '/group/$itemId'
+    | '/user/$userId'
     | '/group'
     | '/media/$groupId/$mediaId'
     | '/episode/$groupId/$mediaId/$episodeId'
@@ -154,7 +187,10 @@ export interface FileRouteTypes {
     | '/profile'
     | '/recommendations'
     | '/register'
+    | '/review'
+    | '/user'
     | '/group/$itemId'
+    | '/user/$userId'
     | '/group/'
     | '/media/$groupId/$mediaId'
     | '/episode/$groupId/$mediaId/$episodeId'
@@ -168,6 +204,8 @@ export interface RootRouteChildren {
   ProfileRoute: typeof ProfileRoute
   RecommendationsRoute: typeof RecommendationsRoute
   RegisterRoute: typeof RegisterRoute
+  ReviewRoute: typeof ReviewRoute
+  UserRoute: typeof UserRouteWithChildren
   GroupItemIdRoute: typeof GroupItemIdRoute
   GroupIndexRoute: typeof GroupIndexRoute
   MediaGroupIdMediaIdRoute: typeof MediaGroupIdMediaIdRoute
@@ -176,6 +214,20 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/user': {
+      id: '/user'
+      path: '/user'
+      fullPath: '/user'
+      preLoaderRoute: typeof UserRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/review': {
+      id: '/review'
+      path: '/review'
+      fullPath: '/review'
+      preLoaderRoute: typeof ReviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/register': {
       id: '/register'
       path: '/register'
@@ -232,6 +284,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GroupIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/user/$userId': {
+      id: '/user/$userId'
+      path: '/$userId'
+      fullPath: '/user/$userId'
+      preLoaderRoute: typeof UserUserIdRouteImport
+      parentRoute: typeof UserRoute
+    }
     '/group/$itemId': {
       id: '/group/$itemId'
       path: '/group/$itemId'
@@ -256,6 +315,16 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface UserRouteChildren {
+  UserUserIdRoute: typeof UserUserIdRoute
+}
+
+const UserRouteChildren: UserRouteChildren = {
+  UserUserIdRoute: UserUserIdRoute,
+}
+
+const UserRouteWithChildren = UserRoute._addFileChildren(UserRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CreateRoute: CreateRoute,
@@ -264,6 +333,8 @@ const rootRouteChildren: RootRouteChildren = {
   ProfileRoute: ProfileRoute,
   RecommendationsRoute: RecommendationsRoute,
   RegisterRoute: RegisterRoute,
+  ReviewRoute: ReviewRoute,
+  UserRoute: UserRouteWithChildren,
   GroupItemIdRoute: GroupItemIdRoute,
   GroupIndexRoute: GroupIndexRoute,
   MediaGroupIdMediaIdRoute: MediaGroupIdMediaIdRoute,

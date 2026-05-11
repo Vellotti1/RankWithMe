@@ -5,6 +5,9 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+export const SUPABASE_URL = supabaseUrl;
+export const SUPABASE_KEY = supabaseAnonKey;
+
 export type Profile = {
   id: string;
   username: string;
@@ -78,6 +81,49 @@ export type EpisodeReview = {
   text: string;
   created_at: string;
   updated_at: string;
+};
+
+export type PersonalReview = {
+  id: string;
+  user_id: string;
+  tmdb_id: number;
+  title: string;
+  media_type: 'movie' | 'show';
+  year: number | null;
+  poster_path: string | null;
+  description: string;
+  score: number;
+  text: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TasteProfile = {
+  id: string;
+  user_id: string;
+  summary: string;
+  genres: string[];
+  updated_at: string;
+};
+
+export type Follow = {
+  id: string;
+  follower_id: string;
+  following_id: string;
+  created_at: string;
+};
+
+export type GroupNextToWatch = {
+  id: string;
+  group_id: string;
+  tmdb_id: number;
+  title: string;
+  media_type: 'movie' | 'show';
+  year: number | null;
+  poster_path: string | null;
+  description: string;
+  added_by: string;
+  created_at: string;
 };
 
 export function tmdbPosterUrl(path: string | null | undefined, size = 'w342'): string {
