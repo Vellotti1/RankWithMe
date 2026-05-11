@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { AppShell } from "@/components/AppShell";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { useAuth } from "@/lib/auth-context";
 import {
   supabase, tmdbPosterUrl, tmdbStillUrl,
-  type MediaItem, type Profile, type Review, type Episode, type EpisodeReview,
+  type MediaItem, type Profile, type Review, type Episode,
 } from "@/lib/supabase";
 import { ChevronLeft, Film, Tv, Star, Sparkles, Users, ChevronRight, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
@@ -35,6 +35,7 @@ function MediaDetailPage() {
   const [overview, setOverview] = useState<string | null>(null);
   const [overviewLoading, setOverviewLoading] = useState(false);
   const [isMember, setIsMember] = useState(false);
+  const overviewLoadedForCount = useRef<number>(-1);
 
   // Episode state (shows only)
   const [seasons, setSeasons] = useState<{ season_number: number; name: string; episode_count: number }[]>([]);
@@ -43,7 +44,7 @@ function MediaDetailPage() {
   const [episodesLoading, setEpisodesLoading] = useState(false);
   const [seasonOpen, setSeasonOpen] = useState(false);
 
-  // Rate sheet (for movies)
+  // Rate sheet (movies only)
   const [rateOpen, setRateOpen] = useState(false);
   const [draftScore, setDraftScore] = useState(80);
   const [draftText, setDraftText] = useState("");
@@ -74,6 +75,40 @@ function MediaDetailPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // Auto-load AI overview whenever reviews change and there are reviews
+  useEffect(() => {
+    if (!item || reviews.length === 0) return;
+    // Only reload if the review count changed (new/edited review) or not yet loaded
+    if (overviewLoadedForCount.current === reviews.length && overview !== null) return;
+    overviewLoadedForCount.current = reviews.length;
+    loadAiOverview();
+  }, [reviews, item]);
+
+  async function loadAiOverview() {
+    if (!item) return;
+    setOverviewLoading(true);
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/ai-overview`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_KEY}` },
+        body: JSON.stringify({
+          title: item.title,
+          media_type: item.media_type,
+          reviews: reviews.map((r) => ({
+            username: r.profiles?.display_name || r.profiles?.username || "Someone",
+            score: r.score,
+            text: r.text,
+          })),
+        }),
+      });
+      const data = await res.json();
+      setOverview(data.overview ?? null);
+    } catch {
+      // silently fail — no toast for auto-load
+    }
+    setOverviewLoading(false);
+  }
+
   // When item loads and it's a show, fetch seasons
   useEffect(() => {
     if (!item || item.media_type !== "show" || !item.tmdb_id) return;
@@ -101,33 +136,30 @@ function MediaDetailPage() {
     if (!item?.tmdb_id) return;
     setEpisodesLoading(true);
 
-    // Fetch from TMDB
     const res = await fetch(
       `${SUPABASE_URL}/functions/v1/tmdb-search?action=episodes&tmdb_id=${item.tmdb_id}&season=${seasonNum}`,
       { headers: { Authorization: `Bearer ${SUPABASE_KEY}` } }
     );
     const data = await res.json();
-    const tmdbEps: Episode[] = data.episodes ?? [];
+    const tmdbEps = data.episodes ?? [];
 
     if (!tmdbEps.length) { setEpisodesLoading(false); return; }
 
-    // Upsert episodes into DB so we can attach reviews
-    const toUpsert = tmdbEps.map((e) => ({
-      media_item_id: mediaId,
-      tmdb_episode_id: e.tmdb_episode_id,
-      season_number: e.season_number,
-      episode_number: e.episode_number,
-      title: e.title,
-      overview: e.overview,
-      still_path: e.still_path,
-      air_date: e.air_date,
-    }));
-    await supabase.from("episodes").upsert(toUpsert, {
-      onConflict: "media_item_id,season_number,episode_number",
-      ignoreDuplicates: false,
-    });
+    // Upsert episodes into DB
+    await supabase.from("episodes").upsert(
+      tmdbEps.map((e: any) => ({
+        media_item_id: mediaId,
+        tmdb_episode_id: e.tmdb_episode_id,
+        season_number: e.season_number,
+        episode_number: e.episode_number,
+        title: e.title,
+        overview: e.overview,
+        still_path: e.still_path,
+        air_date: e.air_date,
+      })),
+      { onConflict: "media_item_id,season_number,episode_number", ignoreDuplicates: false }
+    );
 
-    // Fetch stored episodes with IDs
     const { data: storedEps } = await supabase
       .from("episodes")
       .select("*")
@@ -137,13 +169,10 @@ function MediaDetailPage() {
 
     if (!storedEps) { setEpisodesLoading(false); return; }
 
-    // Attach avg scores
     const withAvg = await Promise.all(
       storedEps.map(async (ep) => {
         const { data: epReviews } = await supabase
-          .from("episode_reviews")
-          .select("score")
-          .eq("episode_id", ep.id);
+          .from("episode_reviews").select("score").eq("episode_id", ep.id);
         const scores = epReviews?.map((r) => r.score) ?? [];
         const avg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
         return { ...ep, avg, review_count: scores.length } as EpisodeWithAvg;
@@ -157,11 +186,8 @@ function MediaDetailPage() {
   async function openRate() {
     if (!user) return;
     const { data } = await supabase
-      .from("reviews")
-      .select("*")
-      .eq("media_item_id", mediaId)
-      .eq("user_id", user.id)
-      .maybeSingle();
+      .from("reviews").select("*")
+      .eq("media_item_id", mediaId).eq("user_id", user.id).maybeSingle();
     setDraftScore(data?.score ?? 80);
     setDraftText(data?.text ?? "");
     setRateOpen(true);
@@ -180,33 +206,10 @@ function MediaDetailPage() {
     } else {
       toast.success("Review saved!");
       setRateOpen(false);
+      // Reset so overview reloads after this review change
+      overviewLoadedForCount.current = -1;
       loadData();
     }
-  }
-
-  async function loadAiOverview() {
-    if (!item || reviews.length === 0) return;
-    setOverviewLoading(true);
-    try {
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/ai-overview`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_KEY}` },
-        body: JSON.stringify({
-          title: item.title,
-          media_type: item.media_type,
-          reviews: reviews.map((r) => ({
-            username: r.profiles?.display_name || r.profiles?.username || "Someone",
-            score: r.score,
-            text: r.text,
-          })),
-        }),
-      });
-      const data = await res.json();
-      setOverview(data.overview ?? null);
-    } catch {
-      toast.error("Could not generate overview.");
-    }
-    setOverviewLoading(false);
   }
 
   if (loading || !user) return null;
@@ -262,62 +265,54 @@ function MediaDetailPage() {
                     <p className="mt-2 text-xs leading-relaxed text-muted-foreground line-clamp-4">{item.description}</p>
                   )}
                 </div>
-                {avgScore !== null && (
+                {!isShow && avgScore !== null && (
                   <div className="mt-3 flex items-center gap-2">
                     <ScoreBadge score={avgScore} size="md" />
                     <span className="text-xs text-muted-foreground">
-                      {reviews.length} {reviews.length === 1 ? "series rating" : "series ratings"}
+                      {reviews.length} {reviews.length === 1 ? "rating" : "ratings"}
                     </span>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Rate button — for movies always, for shows as "rate overall series" */}
-            {isMember && (
+            {/* Rate button — movies only */}
+            {!isShow && isMember && (
               <Button className="mt-4 w-full gap-2" onClick={openRate}>
                 <Star className="h-4 w-4" />
-                {myReview ? (isShow ? "Edit series rating" : "Edit my rating") : (isShow ? "Rate overall series" : "Rate this")}
+                {myReview ? "Edit my rating" : "Rate this"}
               </Button>
             )}
           </section>
 
-          {/* AI Overview */}
-          {reviews.length > 0 && (
-            <section className="mt-6 px-5">
-              <div className="rounded-2xl border border-border bg-card p-4">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-primary" />
-                    <h2 className="text-sm font-semibold">AI Group Overview</h2>
-                  </div>
-                  {!overview && (
-                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={loadAiOverview} disabled={overviewLoading}>
-                      {overviewLoading ? "Generating…" : "Generate"}
-                    </Button>
-                  )}
-                </div>
-                {overview ? (
-                  <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{overview}</p>
-                ) : !overviewLoading ? (
-                  <p className="mt-2 text-xs text-muted-foreground">Tap Generate for an AI summary of your group's opinions.</p>
-                ) : (
-                  <div className="mt-3 space-y-2">
-                    {[1, 0.8, 0.6].map((w, i) => (
-                      <div key={i} className="h-3 animate-pulse rounded bg-muted" style={{ width: `${w * 100}%` }} />
-                    ))}
-                  </div>
-                )}
+          {/* AI Overview — auto-loads, no button */}
+          <section className="mt-6 px-5">
+            <div className="rounded-2xl border border-border bg-card p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-semibold">AI Group Overview</h2>
               </div>
-            </section>
-          )}
+              {overviewLoading ? (
+                <div className="space-y-2 mt-1">
+                  {[1, 0.8, 0.6].map((w, i) => (
+                    <div key={i} className="h-3 animate-pulse rounded bg-muted" style={{ width: `${w * 100}%` }} />
+                  ))}
+                </div>
+              ) : overview ? (
+                <p className="text-sm leading-relaxed text-muted-foreground">{overview}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {reviews.length === 0 ? "Add ratings to generate a group overview." : "Generating overview…"}
+                </p>
+              )}
+            </div>
+          </section>
 
-          {/* Episodes section for shows */}
+          {/* Episodes section — shows only */}
           {isShow && seasons.length > 0 && (
             <section className="mt-6 px-5">
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">Episodes</h2>
-                {/* Season picker */}
                 <div className="relative">
                   <button
                     type="button"
@@ -391,48 +386,53 @@ function MediaDetailPage() {
             </section>
           )}
 
-          {/* Series reviews (overall) */}
-          <section className="mt-6 px-5 pb-8">
-            <div className="mb-3 flex items-center gap-2">
-              <Users className="h-4 w-4 text-muted-foreground" />
-              <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
-                {isShow ? "Series" : ""} {reviews.length} {reviews.length === 1 ? "Rating" : "Ratings"}
-              </h2>
-            </div>
-            {reviews.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-border py-8 text-center">
-                <p className="text-sm text-muted-foreground">No ratings yet. Be the first!</p>
+          {/* Movie reviews only (shows use episode reviews) */}
+          {!isShow && (
+            <section className="mt-6 px-5 pb-8">
+              <div className="mb-3 flex items-center gap-2">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+                  {reviews.length} {reviews.length === 1 ? "Rating" : "Ratings"}
+                </h2>
               </div>
-            ) : (
-              <div className="space-y-3">
-                {reviews.map((r) => (
-                  <div key={r.id} className="flex gap-3 rounded-2xl border border-border bg-card p-4">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-                      {(r.profiles?.display_name || r.profiles?.username || "?").slice(0, 2).toUpperCase()}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-semibold">
-                          {r.profiles?.display_name || r.profiles?.username || "Unknown"}
-                          {r.user_id === user.id && <span className="ml-1.5 text-xs font-normal text-primary">(you)</span>}
-                        </p>
-                        <ScoreBadge score={r.score} size="sm" />
+              {reviews.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-border py-8 text-center">
+                  <p className="text-sm text-muted-foreground">No ratings yet. Be the first!</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {reviews.map((r) => (
+                    <div key={r.id} className="flex gap-3 rounded-2xl border border-border bg-card p-4">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+                        {(r.profiles?.display_name || r.profiles?.username || "?").slice(0, 2).toUpperCase()}
                       </div>
-                      {r.text && <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{r.text}</p>}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-semibold">
+                            {r.profiles?.display_name || r.profiles?.username || "Unknown"}
+                            {r.user_id === user.id && <span className="ml-1.5 text-xs font-normal text-primary">(you)</span>}
+                          </p>
+                          <ScoreBadge score={r.score} size="sm" />
+                        </div>
+                        {r.text && <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{r.text}</p>}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* Spacer for shows (episodes list has bottom padding) */}
+          {isShow && seasons.length === 0 && <div className="pb-8" />}
         </>
       )}
 
-      {/* Rate sheet */}
+      {/* Rate sheet — movies only */}
       <Sheet open={rateOpen} onOpenChange={setRateOpen}>
         <SheetContent side="bottom" className="rounded-t-3xl border-border bg-card">
           <SheetHeader>
-            <SheetTitle>{item?.title}{isShow ? " — Overall" : ""}</SheetTitle>
+            <SheetTitle>{item?.title}</SheetTitle>
           </SheetHeader>
           <div className="mt-4 space-y-4 pb-6">
             <div className="flex items-center justify-between">

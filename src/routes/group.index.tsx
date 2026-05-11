@@ -106,43 +106,50 @@ function GroupListPage() {
                 <Link
                   to="/group/$itemId"
                   params={{ itemId: g.id }}
-                  className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 transition-colors hover:bg-muted"
+                  className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-colors hover:bg-muted"
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h2 className="truncate text-base font-bold">{g.name}</h2>
-                        {g.is_public ? (
-                          <Globe className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        ) : (
-                          <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  {g.image_url && (
+                    <div className="h-28 w-full overflow-hidden">
+                      <img src={g.image_url} alt={g.name} className="h-full w-full object-cover" />
+                    </div>
+                  )}
+                  <div className="flex flex-col gap-3 p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h2 className="truncate text-base font-bold">{g.name}</h2>
+                          {g.is_public ? (
+                            <Globe className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          ) : (
+                            <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          )}
+                        </div>
+                        {g.description && (
+                          <p className="mt-0.5 truncate text-xs text-muted-foreground">{g.description}</p>
                         )}
                       </div>
-                      {g.description && (
-                        <p className="mt-0.5 truncate text-xs text-muted-foreground">{g.description}</p>
-                      )}
                     </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Users className="h-3.5 w-3.5" />
-                        {g.member_count} {g.member_count === 1 ? "member" : "members"}
-                      </span>
-                      <span>{g.item_count} titles</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Users className="h-3.5 w-3.5" />
+                          {g.member_count} {g.member_count === 1 ? "member" : "members"}
+                        </span>
+                        <span>{g.item_count} titles</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          navigator.clipboard.writeText(g.invite_code);
+                          toast.success("Invite code copied!");
+                        }}
+                        className="flex items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-1 text-xs font-mono font-semibold hover:bg-muted"
+                      >
+                        {g.invite_code}
+                        <Copy className="h-3 w-3" />
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        navigator.clipboard.writeText(g.invite_code);
-                        toast.success("Invite code copied!");
-                      }}
-                      className="flex items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-1 text-xs font-mono font-semibold hover:bg-muted"
-                    >
-                      {g.invite_code}
-                      <Copy className="h-3 w-3" />
-                    </button>
                   </div>
                 </Link>
               </li>

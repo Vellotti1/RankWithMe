@@ -150,18 +150,24 @@ function HomePage() {
                   key={g.id}
                   to="/group/$itemId"
                   params={{ itemId: g.id }}
-                  className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 transition-colors hover:bg-muted"
+                  className="flex overflow-hidden rounded-xl border border-border bg-card transition-colors hover:bg-muted"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
-                      <Users className="h-4 w-4 text-muted-foreground" />
+                  {g.image_url ? (
+                    <div className="h-16 w-20 shrink-0 overflow-hidden">
+                      <img src={g.image_url} alt={g.name} className="h-full w-full object-cover" />
                     </div>
-                    <div>
-                      <p className="text-sm font-semibold">{g.name}</p>
+                  ) : (
+                    <div className="flex h-16 w-20 shrink-0 items-center justify-center bg-muted">
+                      <Users className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                  )}
+                  <div className="flex flex-1 items-center justify-between px-4 py-3 min-w-0">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">{g.name}</p>
                       <p className="text-xs text-muted-foreground">{g.is_public ? "Public" : "Private"}</p>
                     </div>
+                    <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                   </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
                 </Link>
               ))}
             </div>
@@ -243,40 +249,67 @@ function PopularGroupCard({ group, rank }: { group: PopularGroup; rank: number }
       to="/group/$itemId"
       params={{ itemId: group.id }}
       onClick={incrementView}
-      className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 transition-colors hover:bg-muted"
+      className="flex overflow-hidden rounded-xl border border-border bg-card transition-colors hover:bg-muted"
     >
-      <span
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold"
-        style={{
-          background:
-            rank === 1
-              ? "linear-gradient(135deg, var(--color-primary), oklch(0.72 0.16 60))"
-              : "oklch(0.26 0.025 270)",
-          color:
-            rank === 1
-              ? "var(--color-primary-foreground)"
-              : "var(--color-muted-foreground)",
-        }}
-      >
-        #{rank}
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold">{group.name}</p>
-        {group.description && (
-          <p className="truncate text-xs text-muted-foreground">{group.description}</p>
-        )}
-        <div className="mt-0.5 flex items-center gap-3">
-          <span className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Users className="h-3 w-3" />
-            {group.member_count} {group.member_count === 1 ? "member" : "members"}
-          </span>
-          <span className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Eye className="h-3 w-3" />
-            {group.view_count.toLocaleString()}
-          </span>
+      {group.image_url ? (
+        <div className="h-20 w-24 shrink-0 overflow-hidden">
+          <img src={group.image_url} alt={group.name} className="h-full w-full object-cover" />
         </div>
+      ) : (
+        <span
+          className="flex h-20 w-14 shrink-0 items-center justify-center text-sm font-bold"
+          style={{
+            background:
+              rank === 1
+                ? "linear-gradient(135deg, var(--color-primary), oklch(0.72 0.16 60))"
+                : "oklch(0.26 0.025 270)",
+            color:
+              rank === 1
+                ? "var(--color-primary-foreground)"
+                : "var(--color-muted-foreground)",
+          }}
+        >
+          #{rank}
+        </span>
+      )}
+      <div className="flex flex-1 items-center justify-between gap-3 px-4 py-3 min-w-0">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            {group.image_url && (
+              <span
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-[10px] font-bold"
+                style={{
+                  background:
+                    rank === 1
+                      ? "linear-gradient(135deg, var(--color-primary), oklch(0.72 0.16 60))"
+                      : "oklch(0.26 0.025 270)",
+                  color:
+                    rank === 1
+                      ? "var(--color-primary-foreground)"
+                      : "var(--color-muted-foreground)",
+                }}
+              >
+                {rank}
+              </span>
+            )}
+            <p className="truncate text-sm font-semibold">{group.name}</p>
+          </div>
+          {group.description && (
+            <p className="truncate text-xs text-muted-foreground">{group.description}</p>
+          )}
+          <div className="mt-0.5 flex items-center gap-3">
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Users className="h-3 w-3" />
+              {group.member_count} {group.member_count === 1 ? "member" : "members"}
+            </span>
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Eye className="h-3 w-3" />
+              {group.view_count.toLocaleString()}
+            </span>
+          </div>
+        </div>
+        <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
       </div>
-      <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
     </Link>
   );
 }
