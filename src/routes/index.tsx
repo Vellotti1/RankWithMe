@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, redirect } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Users, Plus, Hash, TrendingUp, ArrowRight, Film, Star, Eye } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
@@ -16,36 +16,30 @@ function HomePage() {
   const navigate = useNavigate();
   const [popularGroups, setPopularGroups] = useState<PopularGroup[]>([]);
   const [myGroups, setMyGroups] = useState<Group[]>([]);
-  const [groupsLoading, setGroupsLoading] = useState(true);
+  const [popularLoading, setPopularLoading] = useState(true);
+  const [myGroupsLoading, setMyGroupsLoading] = useState(false);
 
+  // Redirect to login once auth is resolved and there's no user
   useEffect(() => {
     if (!loading && !user) {
       navigate({ to: "/login" });
     }
   }, [user, loading, navigate]);
 
+  // Load public popular groups immediately — no auth required
   useEffect(() => {
-    if (!user) return;
-    async function load() {
-      setGroupsLoading(true);
+    async function loadPopular() {
+      setPopularLoading(true);
+      const { data } = await supabase
+        .from("groups")
+        .select("*")
+        .eq("is_public", true)
+        .order("view_count", { ascending: false })
+        .limit(6);
 
-      const [popularRes, myRes] = await Promise.all([
-        supabase
-          .from("groups")
-          .select("*")
-          .eq("is_public", true)
-          .order("view_count", { ascending: false })
-          .limit(6),
-        supabase
-          .from("group_members")
-          .select("groups(*)")
-          .eq("user_id", user!.id)
-          .limit(4),
-      ]);
-
-      if (popularRes.data) {
+      if (data && data.length > 0) {
         const withCounts = await Promise.all(
-          popularRes.data.map(async (g) => {
+          data.map(async (g) => {
             const { count } = await supabase
               .from("group_members")
               .select("*", { count: "exact", head: true })
@@ -55,20 +49,34 @@ function HomePage() {
         );
         setPopularGroups(withCounts);
       }
+      setPopularLoading(false);
+    }
+    loadPopular();
+  }, []);
 
-      if (myRes.data) {
-        const groups = myRes.data
-          .map((row: any) => row.groups)
-          .filter(Boolean) as Group[];
+  // Load user's own groups once authenticated
+  useEffect(() => {
+    if (!user) return;
+    async function loadMyGroups() {
+      setMyGroupsLoading(true);
+      const { data } = await supabase
+        .from("group_members")
+        .select("groups(*)")
+        .eq("user_id", user!.id)
+        .limit(4);
+
+      if (data) {
+        const groups = data.map((row: any) => row.groups).filter(Boolean) as Group[];
         setMyGroups(groups);
       }
-
-      setGroupsLoading(false);
+      setMyGroupsLoading(false);
     }
-    load();
+    loadMyGroups();
   }, [user]);
 
-  if (loading || !user) return null;
+  // Show nothing while auth resolves (avoids flash before redirect)
+  if (loading) return null;
+  if (!user) return null;
 
   return (
     <AppShell>
@@ -167,7 +175,7 @@ function HomePage() {
             <h2 className="text-base font-semibold">Popular groups</h2>
           </div>
 
-          {groupsLoading ? (
+          {popularLoading ? (
             <div className="flex flex-col gap-3">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="h-20 animate-pulse rounded-xl bg-muted" />

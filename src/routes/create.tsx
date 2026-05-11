@@ -47,7 +47,7 @@ function CreatePage() {
       .maybeSingle();
 
     if (error || !group) {
-      toast.error("Failed to create group. Please try again.");
+      toast.error(error?.message ?? "Failed to create group. Please try again.");
       setLoading(false);
       return;
     }
