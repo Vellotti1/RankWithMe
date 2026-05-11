@@ -30,6 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
+    // Initial session check
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -40,17 +41,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    supabase.auth.onAuthStateChange((event, session) => {
+    // Subscribe to auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
         (async () => {
           await loadProfile(session.user.id);
+          // Ensure loading is cleared after sign-in/sign-up triggers this
+          setLoading(false);
         })();
       } else {
         setProfile(null);
+        setLoading(false);
       }
     });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   async function signIn(email: string, password: string) {
@@ -59,15 +66,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signUp(email: string, password: string, username: string, displayName: string) {
-    // Check username availability first
     const { data: existing } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("username", username)
+      .from('profiles')
+      .select('id')
+      .eq('username', username)
       .maybeSingle();
 
     if (existing) {
-      return { error: "Username is already taken. Please choose another." };
+      return { error: 'Username is already taken. Please choose another.' };
     }
 
     const { data, error } = await supabase.auth.signUp({
@@ -75,22 +81,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password,
       options: {
         data: { username, display_name: displayName },
-        emailRedirectTo: undefined,
       },
     });
 
     if (error) return { error: error.message };
 
-    // If the user is immediately confirmed (no email verification required),
-    // sign them in right away so the session is active.
-    if (data.session) {
-      setSession(data.session);
-      setUser(data.user);
-      if (data.user) await loadProfile(data.user.id);
-    } else if (data.user && !data.session) {
-      // Email confirmation is enabled — sign the user in manually
+    // If email confirmation is required and no session was returned, try signing in directly
+    if (!data.session && data.user) {
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-      if (signInError) return { error: null }; // account created, but sign-in may need email confirmation
+      if (signInError) return { error: null };
     }
 
     return { error: null };

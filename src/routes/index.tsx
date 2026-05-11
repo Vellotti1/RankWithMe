@@ -140,8 +140,8 @@ function HomePage() {
               {myGroups.map((g) => (
                 <Link
                   key={g.id}
-                  to="/group/$groupId"
-                  params={{ groupId: g.id }}
+                  to="/group/$itemId"
+                  params={{ itemId: g.id }}
                   className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 transition-colors hover:bg-muted"
                 >
                   <div className="flex items-center gap-3">
@@ -232,8 +232,8 @@ function PopularGroupCard({ group, rank }: { group: PopularGroup; rank: number }
 
   return (
     <Link
-      to="/group/$groupId"
-      params={{ groupId: group.id }}
+      to="/group/$itemId"
+      params={{ itemId: group.id }}
       onClick={incrementView}
       className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 transition-colors hover:bg-muted"
     >

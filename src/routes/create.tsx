@@ -60,7 +60,7 @@ function CreatePage() {
     });
 
     toast.success("Group created!");
-    navigate({ to: "/group/$groupId", params: { groupId: group.id } });
+    navigate({ to: "/group/$itemId", params: { itemId: group.id } });
   }
 
   return (

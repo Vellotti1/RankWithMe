@@ -104,8 +104,8 @@ function GroupListPage() {
             {groups.map((g) => (
               <li key={g.id}>
                 <Link
-                  to="/group/$groupId"
-                  params={{ groupId: g.id }}
+                  to="/group/$itemId"
+                  params={{ itemId: g.id }}
                   className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 transition-colors hover:bg-muted"
                 >
                   <div className="flex items-start justify-between gap-2">
