@@ -16,7 +16,7 @@ async function callClaude(key: string, prompt: string, maxTokens = 256): Promise
       "content-type": "application/json",
     },
     body: JSON.stringify({
-      model: "claude-haiku-4-5-20251112",
+      model: "claude-haiku-4-5",
       max_tokens: maxTokens,
       messages: [{ role: "user", content: prompt }],
     }),

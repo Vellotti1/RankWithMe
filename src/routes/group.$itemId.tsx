@@ -10,7 +10,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/lib/auth-context";
 import { supabase, SUPABASE_URL, SUPABASE_KEY, tmdbPosterUrl, type Group, type MediaItem, type Profile, type GroupNextToWatch } from "@/lib/supabase";
-import { ChevronLeft, Copy, Users, Plus, Lock, Globe, Settings, Film, Tv, Search, X, Trash2, LogOut, Crown, Bookmark } from "lucide-react";
+import { ChevronLeft, Copy, Users, Plus, Lock, Globe, Settings, Film, Tv, Search, X, Trash2, LogOut, Crown, Bookmark, MessageSquare, EyeOff, Eye, Send, Star } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/group/$itemId")({
@@ -30,7 +30,7 @@ function GroupDetailPage() {
   const [members, setMembers] = useState<GroupMemberWithProfile[]>([]);
   const [mediaItems, setMediaItems] = useState<MediaWithAvg[]>([]);
   const [pageLoading, setPageLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"rankings" | "next">("rankings");
+  const [activeTab, setActiveTab] = useState<"rankings" | "next" | "chat">("rankings");
   const [nextItems, setNextItems] = useState<GroupNextToWatch[]>([]);
 
   const [addOpen, setAddOpen] = useState(false);
@@ -65,22 +65,34 @@ function GroupDetailPage() {
   const [watchedText, setWatchedText] = useState("");
   const [watchedSaving, setWatchedSaving] = useState(false);
 
+  // Chat state
+  type ChatMessage = { id: string; group_id: string; user_id: string | null; message: string; message_type: "chat" | "review_stamp"; metadata: any; created_at: string };
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatSending, setChatSending] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
+
+  // Hidden items state (for owner UI)
+  const [showHiddenPanel, setShowHiddenPanel] = useState(false);
+
   useEffect(() => { if (!loading && !user) navigate({ to: "/login" }); }, [user, loading, navigate]);
 
   const loadData = useCallback(async () => {
     if (!user) return;
     setPageLoading(true);
-    const [groupRes, membersRes, itemsRes, nextRes, watchedRes] = await Promise.all([
+    const [groupRes, membersRes, itemsRes, nextRes, watchedRes, chatRes] = await Promise.all([
       supabase.from("groups").select("*").eq("id", groupId).maybeSingle(),
       supabase.from("group_members").select("id, user_id, role, profiles(*)").eq("group_id", groupId),
       supabase.from("media_items").select("*").eq("group_id", groupId),
       supabase.from("group_next_to_watch").select("*").eq("group_id", groupId).order("created_at"),
       supabase.from("group_next_to_watch_watched").select("id, item_id, user_id, score, text"),
+      supabase.from("group_chat_messages").select("*").eq("group_id", groupId).order("created_at").limit(100),
     ]);
     if (groupRes.data) setGroup(groupRes.data);
     if (membersRes.data) setMembers(membersRes.data.map((r: any) => ({ ...r, profiles: r.profiles })).filter((r: any) => r.profiles));
     if (nextRes.data) setNextItems(nextRes.data);
     if (watchedRes.data) setWatchedRecords(watchedRes.data as any);
+    if (chatRes.data) setChatMessages(chatRes.data as any);
     if (itemsRes.data) {
       const withAvg = await Promise.all(itemsRes.data.map(async (item) => {
         const { data: reviews } = await supabase.from("reviews").select("score").eq("media_item_id", item.id);
@@ -205,6 +217,24 @@ function GroupDetailPage() {
     toast.success("Group deleted."); navigate({ to: "/group" });
   }
 
+  async function handleSendChat() {
+    if (!user || !chatInput.trim()) return;
+    setChatSending(true);
+    const msg = chatInput.trim();
+    setChatInput("");
+    const { data, error } = await supabase.from("group_chat_messages").insert({
+      group_id: groupId, user_id: user.id, message: msg, message_type: "chat",
+    }).select().maybeSingle();
+    if (!error && data) setChatMessages((prev) => [...prev, data as any]);
+    setChatSending(false);
+    setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+  }
+
+  async function handleToggleHide(itemId: string, currentHidden: boolean) {
+    await supabase.from("media_items").update({ is_hidden: !currentHidden }).eq("id", itemId);
+    loadData();
+  }
+
   function openWatchedSheet(itemId: string) {
     if (!user) return;
     const existing = watchedRecords.find((w) => w.item_id === itemId && w.user_id === user.id);
@@ -279,7 +309,7 @@ function GroupDetailPage() {
       {/* Tabs */}
       <div className="mt-5 px-5">
         <div className="flex gap-1 rounded-xl bg-muted p-1">
-          {([["rankings", "Rankings"], ["next", "Next to Watch"]] as const).map(([t, label]) => (
+          {([["rankings", "Rankings"], ["next", "Watch"], ["chat", "Chat"]] as const).map(([t, label]) => (
             <button key={t} type="button" onClick={() => setActiveTab(t)}
               className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-colors ${activeTab === t ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
               {label}
@@ -290,44 +320,93 @@ function GroupDetailPage() {
 
       {/* Rankings tab */}
       {activeTab === "rankings" && (
-        <section className="mt-4 px-5">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">{mediaItems.length} titles</h2>
-            {isMember && <Button size="sm" variant="outline" onClick={() => setAddOpen(true)} className="h-8 gap-1 text-xs"><Plus className="h-3.5 w-3.5" /> Add title</Button>}
-          </div>
-          {pageLoading ? (
-            <div className="flex flex-col gap-3">{[1, 2, 3].map((i) => <div key={i} className="h-20 animate-pulse rounded-2xl bg-muted" />)}</div>
-          ) : mediaItems.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border py-10 text-center">
-              <p className="text-sm font-medium">No titles yet</p>
-              <p className="text-xs text-muted-foreground">Add the first movie or show to rank.</p>
-              {isMember && <Button size="sm" onClick={() => setAddOpen(true)}><Plus className="h-4 w-4 mr-1" /> Add title</Button>}
-            </div>
-          ) : (
-            <ol className="space-y-2">
-              {mediaItems.map((item, idx) => {
-                const poster = item.tmdb_poster_path ? tmdbPosterUrl(item.tmdb_poster_path, "w154") : item.poster_url;
-                return (
-                  <li key={item.id}>
-                    <Link to="/media/$groupId/$mediaId" params={{ groupId, mediaId: item.id }}
-                      className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-3 text-left transition-colors hover:bg-muted">
-                      <span className="w-5 shrink-0 text-center text-sm font-bold text-muted-foreground">{idx + 1}</span>
-                      {poster ? <img src={poster} alt={item.title} className="h-16 w-11 shrink-0 rounded-md object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : (
-                        <div className="flex h-16 w-11 shrink-0 items-center justify-center rounded-md bg-muted">
-                          {item.media_type === "movie" ? <Film className="h-5 w-5 text-muted-foreground" /> : <Tv className="h-5 w-5 text-muted-foreground" />}
-                        </div>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold">{item.title}</p>
-                        <p className="mt-0.5 text-[11px] uppercase tracking-wider text-muted-foreground">{item.media_type} · {item.year ?? "—"} · {item.review_count} {item.review_count === 1 ? "rating" : "ratings"}</p>
+        <section className="mt-4 px-5 pb-4">
+          {(() => {
+            const visibleItems = isOwner ? mediaItems : mediaItems.filter((i) => !(i as any).is_hidden);
+            const hiddenItems = mediaItems.filter((i) => (i as any).is_hidden);
+            return (
+              <>
+                <div className="mb-3 flex items-center justify-between">
+                  <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">{visibleItems.length} titles</h2>
+                  {isMember && <Button size="sm" variant="outline" onClick={() => setAddOpen(true)} className="h-8 gap-1 text-xs"><Plus className="h-3.5 w-3.5" /> Add title</Button>}
+                </div>
+                {pageLoading ? (
+                  <div className="flex flex-col gap-3">{[1, 2, 3].map((i) => <div key={i} className="h-20 animate-pulse rounded-2xl bg-muted" />)}</div>
+                ) : visibleItems.length === 0 ? (
+                  <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border py-10 text-center">
+                    <p className="text-sm font-medium">No titles yet</p>
+                    <p className="text-xs text-muted-foreground">Add the first movie or show to rank.</p>
+                    {isMember && <Button size="sm" onClick={() => setAddOpen(true)}><Plus className="h-4 w-4 mr-1" /> Add title</Button>}
+                  </div>
+                ) : (
+                  <ol className="space-y-2">
+                    {visibleItems.map((item, idx) => {
+                      const poster = item.tmdb_poster_path ? tmdbPosterUrl(item.tmdb_poster_path, "w154") : item.poster_url;
+                      const isHidden = (item as any).is_hidden;
+                      return (
+                        <li key={item.id} className="relative">
+                          <Link to="/media/$groupId/$mediaId" params={{ groupId, mediaId: item.id }}
+                            className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-3 text-left transition-colors hover:bg-muted">
+                            <span className="w-5 shrink-0 text-center text-sm font-bold text-muted-foreground">{idx + 1}</span>
+                            {poster ? <img src={poster} alt={item.title} className="h-16 w-11 shrink-0 rounded-md object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : (
+                              <div className="flex h-16 w-11 shrink-0 items-center justify-center rounded-md bg-muted">
+                                {item.media_type === "movie" ? <Film className="h-5 w-5 text-muted-foreground" /> : <Tv className="h-5 w-5 text-muted-foreground" />}
+                              </div>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold">{item.title}</p>
+                              <p className="mt-0.5 text-[11px] uppercase tracking-wider text-muted-foreground">{item.media_type} · {item.year ?? "—"} · {item.review_count} {item.review_count === 1 ? "rating" : "ratings"}</p>
+                            </div>
+                            {item.review_count > 0 ? <ScoreBadge score={item.avg} size="md" /> : <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">—</span>}
+                          </Link>
+                          {isOwner && (
+                            <button type="button" onClick={() => handleToggleHide(item.id, !!isHidden)}
+                              className="absolute right-11 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                              title={isHidden ? "Show" : "Hide"}>
+                              {isHidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                            </button>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ol>
+                )}
+                {isOwner && hiddenItems.length > 0 && (
+                  <div className="mt-4">
+                    <button type="button" onClick={() => setShowHiddenPanel(!showHiddenPanel)}
+                      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                      <EyeOff className="h-3.5 w-3.5" />
+                      {showHiddenPanel ? "Hide" : "Show"} hidden titles ({hiddenItems.length})
+                    </button>
+                    {showHiddenPanel && (
+                      <div className="mt-2 space-y-2">
+                        {hiddenItems.map((item) => {
+                          const poster = item.tmdb_poster_path ? tmdbPosterUrl(item.tmdb_poster_path, "w154") : item.poster_url;
+                          return (
+                            <div key={item.id} className="flex items-center gap-3 rounded-2xl border border-dashed border-border bg-card/50 p-3 opacity-60">
+                              {poster ? <img src={poster} alt={item.title} className="h-12 w-8 shrink-0 rounded-md object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : (
+                                <div className="flex h-12 w-8 shrink-0 items-center justify-center rounded-md bg-muted">
+                                  {item.media_type === "movie" ? <Film className="h-4 w-4 text-muted-foreground" /> : <Tv className="h-4 w-4 text-muted-foreground" />}
+                                </div>
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-semibold">{item.title}</p>
+                                <p className="text-[11px] text-muted-foreground capitalize">{item.media_type} · {item.year ?? "—"}</p>
+                              </div>
+                              <button type="button" onClick={() => handleToggleHide(item.id, true)}
+                                className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium hover:bg-muted">
+                                <Eye className="h-3 w-3" /> Show
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
-                      {item.review_count > 0 ? <ScoreBadge score={item.avg} size="md" /> : <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">—</span>}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ol>
-          )}
+                    )}
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </section>
       )}
 
@@ -391,14 +470,78 @@ function GroupDetailPage() {
         </section>
       )}
 
+      {/* Chat tab */}
+      {activeTab === "chat" && (
+        <section className="mt-4 px-5 pb-4 flex flex-col" style={{ minHeight: "calc(100vh - 300px)" }}>
+          <div className="flex-1 space-y-3 overflow-y-auto pb-4" style={{ maxHeight: "calc(100vh - 360px)", overflowY: "auto" }}>
+            {chatMessages.length === 0 ? (
+              <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border py-10 text-center">
+                <MessageSquare className="h-8 w-8 text-muted-foreground" />
+                <p className="text-sm font-medium">No messages yet</p>
+                <p className="text-xs text-muted-foreground">Start the conversation!</p>
+              </div>
+            ) : (
+              chatMessages.map((msg) => {
+                const sender = members.find((m) => m.user_id === msg.user_id);
+                const senderName = sender?.profiles?.display_name || sender?.profiles?.username || "Someone";
+                const isMe = msg.user_id === user.id;
+                if (msg.message_type === "review_stamp") {
+                  const meta = msg.metadata ?? {};
+                  return (
+                    <div key={msg.id} className="flex justify-center">
+                      <div className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground max-w-xs text-center">
+                        <Star className="h-3 w-3 text-amber-500 shrink-0" />
+                        <span>
+                          <Link to="/user/$userId" params={{ userId: msg.user_id! }} className="font-semibold text-foreground hover:text-primary">{senderName}</Link>
+                          {" "}rated{" "}
+                          <span className="font-semibold text-foreground">{meta.title}</span>
+                          {" "}<span className="font-bold text-primary">{meta.score}/100</span>
+                        </span>
+                      </div>
+                    </div>
+                  );
+                }
+                return (
+                  <div key={msg.id} className={`flex gap-2 ${isMe ? "flex-row-reverse" : ""}`}>
+                    {!isMe && (
+                      <Link to="/user/$userId" params={{ userId: msg.user_id! }} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground hover:opacity-80">
+                        {senderName.slice(0, 2).toUpperCase()}
+                      </Link>
+                    )}
+                    <div className={`max-w-[70%] ${isMe ? "items-end" : "items-start"} flex flex-col gap-0.5`}>
+                      {!isMe && <p className="text-[10px] text-muted-foreground ml-1">{senderName}</p>}
+                      <div className={`rounded-2xl px-3 py-2 text-sm ${isMe ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-card border border-border rounded-bl-sm"}`}>
+                        {msg.message}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+            <div ref={chatEndRef} />
+          </div>
+          {isMember && (
+            <div className="mt-3 flex gap-2 sticky bottom-0 bg-background pt-2 pb-2 border-t border-border">
+              <Input
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendChat(); } }}
+                placeholder="Message…"
+                className="flex-1"
+                disabled={chatSending}
+              />
+              <Button size="sm" onClick={handleSendChat} disabled={!chatInput.trim() || chatSending} className="shrink-0 px-3">
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </section>
+      )}
+
       {/* Group actions */}
-      {!pageLoading && isMember && (
-        <section className="mt-8 px-5 pb-8 space-y-2">
-          {isOwner ? (
-            <button type="button" onClick={() => setDeleteConfirmOpen(true)} className="flex w-full items-center gap-3 rounded-2xl border border-destructive/30 bg-card p-4 text-sm font-medium text-destructive hover:bg-destructive/5">
-              <Trash2 className="h-4 w-4" /> Delete group
-            </button>
-          ) : (
+      {!pageLoading && isMember && activeTab !== "chat" && (
+        <section className="mt-4 px-5 pb-8 space-y-2">
+          {!isOwner && (
             <button type="button" onClick={() => setLeaveConfirmOpen(true)} className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-4 text-sm font-medium text-destructive hover:bg-muted">
               <LogOut className="h-4 w-4" /> Leave group
             </button>
@@ -483,22 +626,28 @@ function GroupDetailPage() {
                 <Crown className="h-4 w-4 text-amber-500" /> Give ownership
               </button>
             )}
+            {isOwner && (
+              <button type="button" onClick={() => { setEditOpen(false); setDeleteConfirmOpen(true); }}
+                className="flex w-full items-center gap-3 rounded-xl border border-destructive/30 bg-background p-3 text-sm font-medium text-destructive hover:bg-destructive/5">
+                <Trash2 className="h-4 w-4" /> Delete group
+              </button>
+            )}
             <div className="pt-2">
               <h3 className="mb-2 text-sm font-semibold">Members</h3>
               <div className="space-y-2">
                 {members.map((m) => (
                   <div key={m.id} className="flex items-center justify-between rounded-xl border border-border bg-background px-3 py-2.5">
-                    <div className="flex items-center gap-2.5">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+                    <Link to="/user/$userId" params={{ userId: m.user_id }} onClick={() => setEditOpen(false)} className="flex items-center gap-2.5 hover:opacity-80 transition-opacity min-w-0 flex-1">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
                         {(m.profiles?.display_name || m.profiles?.username || "?").slice(0, 2).toUpperCase()}
                       </div>
-                      <div>
-                        <p className="text-sm font-medium">{m.profiles?.display_name || m.profiles?.username}{m.user_id === user.id && <span className="ml-1.5 text-xs text-muted-foreground">(you)</span>}</p>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{m.profiles?.display_name || m.profiles?.username}{m.user_id === user.id && <span className="ml-1.5 text-xs text-muted-foreground">(you)</span>}</p>
                         <p className="text-xs capitalize text-muted-foreground">{m.role}</p>
                       </div>
-                    </div>
+                    </Link>
                     {m.user_id !== user.id && (
-                      <button type="button" onClick={() => handleRemoveMember(m.id, m.user_id)} className="flex h-7 w-7 items-center justify-center rounded-lg text-destructive hover:bg-destructive/10 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
+                      <button type="button" onClick={() => handleRemoveMember(m.id, m.user_id)} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-destructive hover:bg-destructive/10 transition-colors ml-2"><Trash2 className="h-3.5 w-3.5" /></button>
                     )}
                   </div>
                 ))}

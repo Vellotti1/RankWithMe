@@ -209,6 +209,62 @@ function UserPage() {
               )}
             </div>
 
+            {/* Top 3 */}
+            {personalReviews.length > 0 && (() => {
+              const topMovies = [...personalReviews].filter((r) => r.media_type === "movie").sort((a, b) => b.score - a.score).slice(0, 3);
+              const topShows = [...personalReviews].filter((r) => r.media_type === "show").sort((a, b) => b.score - a.score).slice(0, 3);
+              return (topMovies.length > 0 || topShows.length > 0) ? (
+                <div className="grid grid-cols-2 gap-3">
+                  {topMovies.length > 0 && (
+                    <div className="rounded-2xl border border-border bg-card p-3">
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <Film className="h-3.5 w-3.5 text-primary" />
+                        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Top Movies</p>
+                      </div>
+                      <div className="space-y-2">
+                        {topMovies.map((r, i) => {
+                          const poster = r.poster_path ? tmdbPosterUrl(r.poster_path, "w92") : null;
+                          return (
+                            <div key={r.id} className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-muted-foreground w-3 shrink-0">{i + 1}</span>
+                              {poster ? <img src={poster} alt={r.title} className="h-10 w-7 shrink-0 rounded object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : <div className="flex h-10 w-7 shrink-0 items-center justify-center rounded bg-muted"><Film className="h-3 w-3 text-muted-foreground" /></div>}
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-xs font-semibold leading-tight">{r.title}</p>
+                                <p className="text-[10px] font-bold text-primary">{r.score}/100</p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  {topShows.length > 0 && (
+                    <div className="rounded-2xl border border-border bg-card p-3">
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <Tv className="h-3.5 w-3.5 text-primary" />
+                        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Top Shows</p>
+                      </div>
+                      <div className="space-y-2">
+                        {topShows.map((r, i) => {
+                          const poster = r.poster_path ? tmdbPosterUrl(r.poster_path, "w92") : null;
+                          return (
+                            <div key={r.id} className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-muted-foreground w-3 shrink-0">{i + 1}</span>
+                              {poster ? <img src={poster} alt={r.title} className="h-10 w-7 shrink-0 rounded object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : <div className="flex h-10 w-7 shrink-0 items-center justify-center rounded bg-muted"><Tv className="h-3 w-3 text-muted-foreground" /></div>}
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-xs font-semibold leading-tight">{r.title}</p>
+                                <p className="text-[10px] font-bold text-primary">{r.score}/100</p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : null;
+            })()}
+
             {/* My reviews */}
             <div>
               <h2 className="mb-2 text-sm font-semibold uppercase tracking-widest text-muted-foreground">
@@ -362,7 +418,7 @@ function UserPage() {
                         const p = f.profiles;
                         const isFriend = friends.some((fr) => fr.following_id === f.following_id);
                         return (
-                          <div key={f.id} className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3">
+                          <Link key={f.id} to="/user/$userId" params={{ userId: f.following_id }} className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3 hover:bg-muted">
                             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground">
                               {(p?.display_name || p?.username || "?").slice(0, 2).toUpperCase()}
                             </div>
@@ -371,14 +427,12 @@ function UserPage() {
                               <p className="text-xs text-muted-foreground">@{p?.username}{isFriend ? " · Friends" : " · Pending"}</p>
                             </div>
                             <div className="flex items-center gap-2">
-                              <button type="button" onClick={() => handleFollow(f.following_id)} className="rounded-xl border border-border bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground">
+                              <button type="button" onClick={(e) => { e.preventDefault(); handleFollow(f.following_id); }} className="rounded-xl border border-border bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground">
                                 Unfollow
                               </button>
-                              <Link to="/user/$userId" params={{ userId: f.following_id }} className="flex items-center justify-center rounded-xl border border-border p-1.5 hover:bg-muted">
-                                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                              </Link>
+                              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                             </div>
-                          </div>
+                          </Link>
                         );
                       })}
                     </div>

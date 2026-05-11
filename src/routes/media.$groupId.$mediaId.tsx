@@ -220,6 +220,22 @@ function MediaDetailPage() {
       );
     }
 
+    // Post review stamp to group chat
+    if (!error) {
+      await supabase.from("group_chat_messages").insert({
+        group_id: groupId,
+        user_id: user.id,
+        message: "",
+        message_type: "review_stamp",
+        metadata: {
+          title: item.title,
+          score: draftScore,
+          media_type: item.media_type,
+          media_item_id: mediaId,
+        },
+      });
+    }
+
     setSaving(false);
     if (error) {
       toast.error("Failed to save review.");
@@ -422,15 +438,15 @@ function MediaDetailPage() {
                 <div className="space-y-3">
                   {reviews.map((r) => (
                     <div key={r.id} className="flex gap-3 rounded-2xl border border-border bg-card p-4">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+                      <Link to="/user/$userId" params={{ userId: r.user_id }} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground hover:opacity-80 transition-opacity">
                         {(r.profiles?.display_name || r.profiles?.username || "?").slice(0, 2).toUpperCase()}
-                      </div>
+                      </Link>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
-                          <p className="text-sm font-semibold">
+                          <Link to="/user/$userId" params={{ userId: r.user_id }} className="text-sm font-semibold hover:text-primary transition-colors">
                             {r.profiles?.display_name || r.profiles?.username || "Unknown"}
                             {r.user_id === user.id && <span className="ml-1.5 text-xs font-normal text-primary">(you)</span>}
-                          </p>
+                          </Link>
                           <ScoreBadge score={r.score} size="sm" />
                         </div>
                         {r.text && <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{r.text}</p>}
