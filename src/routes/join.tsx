@@ -54,14 +54,61 @@ function JoinPage() {
       role: "member",
     });
 
-    setLoading(false);
-
     if (joinError) {
       toast.error("Failed to join group. Please try again.");
-    } else {
-      toast.success(`Joined "${group.name}"!`);
-      navigate({ to: "/group/$itemId", params: { itemId: group.id } });
+      setLoading(false);
+      return;
     }
+
+    // Sync user's personal reviews into the group
+    const { data: personalReviews } = await supabase
+      .from("personal_reviews")
+      .select("*")
+      .eq("user_id", user.id);
+
+    if (personalReviews?.length) {
+      for (const pr of personalReviews) {
+        // Check if media_item already exists in this group by tmdb_id
+        const { data: existingItem } = await supabase
+          .from("media_items")
+          .select("id")
+          .eq("group_id", group.id)
+          .eq("tmdb_id", pr.tmdb_id)
+          .maybeSingle();
+
+        let mediaItemId: string | undefined = existingItem?.id;
+
+        if (!mediaItemId) {
+          const { data: newItem } = await supabase
+            .from("media_items")
+            .insert({
+              group_id: group.id,
+              title: pr.title,
+              year: pr.year,
+              media_type: pr.media_type,
+              description: pr.description ?? "",
+              poster_url: pr.poster_path ? `https://image.tmdb.org/t/p/w342${pr.poster_path}` : "",
+              tmdb_id: pr.tmdb_id,
+              tmdb_poster_path: pr.poster_path,
+              added_by: user.id,
+            })
+            .select("id")
+            .maybeSingle();
+          mediaItemId = newItem?.id;
+        }
+
+        if (mediaItemId) {
+          await supabase.from("reviews").upsert(
+            { media_item_id: mediaItemId, user_id: user.id, score: pr.score, text: pr.text ?? "", updated_at: new Date().toISOString() },
+            { onConflict: "media_item_id,user_id" }
+          );
+        }
+      }
+    }
+
+    setLoading(false);
+    toast.success(`Joined "${group.name}"!`);
+    navigate({ to: "/group/$itemId", params: { itemId: group.id } });
   }
 
   return (

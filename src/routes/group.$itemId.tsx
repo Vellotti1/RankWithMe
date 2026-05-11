@@ -4,6 +4,7 @@ import { AppShell } from "@/components/AppShell";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -56,20 +57,30 @@ function GroupDetailPage() {
   const [ownershipOpen, setOwnershipOpen] = useState(false);
   const [newOwnerMemberId, setNewOwnerMemberId] = useState("");
 
+  // Watched tracking for Next to Watch
+  type WatchedRecord = { id: string; item_id: string; user_id: string; score: number | null; text: string };
+  const [watchedRecords, setWatchedRecords] = useState<WatchedRecord[]>([]);
+  const [watchedSheetItemId, setWatchedSheetItemId] = useState<string | null>(null);
+  const [watchedScore, setWatchedScore] = useState(80);
+  const [watchedText, setWatchedText] = useState("");
+  const [watchedSaving, setWatchedSaving] = useState(false);
+
   useEffect(() => { if (!loading && !user) navigate({ to: "/login" }); }, [user, loading, navigate]);
 
   const loadData = useCallback(async () => {
     if (!user) return;
     setPageLoading(true);
-    const [groupRes, membersRes, itemsRes, nextRes] = await Promise.all([
+    const [groupRes, membersRes, itemsRes, nextRes, watchedRes] = await Promise.all([
       supabase.from("groups").select("*").eq("id", groupId).maybeSingle(),
       supabase.from("group_members").select("id, user_id, role, profiles(*)").eq("group_id", groupId),
       supabase.from("media_items").select("*").eq("group_id", groupId),
       supabase.from("group_next_to_watch").select("*").eq("group_id", groupId).order("created_at"),
+      supabase.from("group_next_to_watch_watched").select("id, item_id, user_id, score, text"),
     ]);
     if (groupRes.data) setGroup(groupRes.data);
     if (membersRes.data) setMembers(membersRes.data.map((r: any) => ({ ...r, profiles: r.profiles })).filter((r: any) => r.profiles));
     if (nextRes.data) setNextItems(nextRes.data);
+    if (watchedRes.data) setWatchedRecords(watchedRes.data as any);
     if (itemsRes.data) {
       const withAvg = await Promise.all(itemsRes.data.map(async (item) => {
         const { data: reviews } = await supabase.from("reviews").select("score").eq("media_item_id", item.id);
@@ -151,8 +162,18 @@ function GroupDetailPage() {
     toast.success("Group updated!"); setEditOpen(false); loadData();
   }
 
+  async function removeUserFromGroup(targetUserId: string) {
+    // Delete all of that user's reviews for media items in this group
+    const { data: groupItems } = await supabase.from("media_items").select("id").eq("group_id", groupId);
+    if (groupItems?.length) {
+      const itemIds = groupItems.map((i) => i.id);
+      await supabase.from("reviews").delete().eq("user_id", targetUserId).in("media_item_id", itemIds);
+    }
+  }
+
   async function handleRemoveMember(memberId: string, memberUserId: string) {
     if (memberUserId === user?.id) return;
+    await removeUserFromGroup(memberUserId);
     const { error } = await supabase.from("group_members").delete().eq("id", memberId);
     if (error) { toast.error("Failed to remove member."); return; }
     toast.success("Member removed."); loadData();
@@ -160,6 +181,7 @@ function GroupDetailPage() {
 
   async function handleLeaveGroup() {
     if (!user) return;
+    await removeUserFromGroup(user.id);
     const { error } = await supabase.from("group_members").delete().eq("group_id", groupId).eq("user_id", user.id);
     if (error) { toast.error("Failed to leave group."); return; }
     toast.success("You left the group."); navigate({ to: "/group" });
@@ -181,6 +203,26 @@ function GroupDetailPage() {
     const { error } = await supabase.from("groups").delete().eq("id", groupId);
     if (error) { toast.error("Failed to delete group."); return; }
     toast.success("Group deleted."); navigate({ to: "/group" });
+  }
+
+  function openWatchedSheet(itemId: string) {
+    if (!user) return;
+    const existing = watchedRecords.find((w) => w.item_id === itemId && w.user_id === user.id);
+    setWatchedScore(existing?.score ?? 80);
+    setWatchedText(existing?.text ?? "");
+    setWatchedSheetItemId(itemId);
+  }
+
+  async function handleSaveWatched() {
+    if (!user || !watchedSheetItemId) return;
+    setWatchedSaving(true);
+    await supabase.from("group_next_to_watch_watched").upsert(
+      { item_id: watchedSheetItemId, user_id: user.id, score: watchedScore, text: watchedText },
+      { onConflict: "item_id,user_id" }
+    );
+    setWatchedSaving(false);
+    setWatchedSheetItemId(null);
+    loadData();
   }
 
   if (loading || !user) return null;
@@ -270,7 +312,7 @@ function GroupDetailPage() {
                     <Link to="/media/$groupId/$mediaId" params={{ groupId, mediaId: item.id }}
                       className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-3 text-left transition-colors hover:bg-muted">
                       <span className="w-5 shrink-0 text-center text-sm font-bold text-muted-foreground">{idx + 1}</span>
-                      {poster ? <img src={poster} alt={item.title} className="h-16 w-11 shrink-0 rounded-md object-cover" /> : (
+                      {poster ? <img src={poster} alt={item.title} className="h-16 w-11 shrink-0 rounded-md object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : (
                         <div className="flex h-16 w-11 shrink-0 items-center justify-center rounded-md bg-muted">
                           {item.media_type === "movie" ? <Film className="h-5 w-5 text-muted-foreground" /> : <Tv className="h-5 w-5 text-muted-foreground" />}
                         </div>
@@ -308,23 +350,37 @@ function GroupDetailPage() {
               {nextItems.map((item, idx) => {
                 const poster = item.poster_path ? tmdbPosterUrl(item.poster_path, "w154") : null;
                 const addedBy = members.find((m) => m.user_id === item.added_by);
-                const canRemove = item.added_by === user.id || isOwner;
+                const itemWatched = watchedRecords.filter((w) => w.item_id === item.id);
+                const myWatched = itemWatched.find((w) => w.user_id === user.id);
+                const watchedCount = itemWatched.length;
+                const canRemove = watchedCount >= 3 && (item.added_by === user.id || isOwner);
                 return (
-                  <div key={item.id} className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3">
-                    <span className="w-5 shrink-0 text-center text-sm font-bold text-primary">{idx + 1}</span>
-                    {poster ? <img src={poster} alt={item.title} className="h-16 w-11 shrink-0 rounded-md object-cover" /> : (
-                      <div className="flex h-16 w-11 shrink-0 items-center justify-center rounded-md bg-muted">
-                        {item.media_type === "movie" ? <Film className="h-5 w-5 text-muted-foreground" /> : <Tv className="h-5 w-5 text-muted-foreground" />}
+                  <div key={item.id} className="rounded-2xl border border-border bg-card p-3 space-y-2">
+                    <div className="flex items-center gap-3">
+                      <span className="w-5 shrink-0 text-center text-sm font-bold text-primary">{idx + 1}</span>
+                      {poster ? <img src={poster} alt={item.title} className="h-16 w-11 shrink-0 rounded-md object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : (
+                        <div className="flex h-16 w-11 shrink-0 items-center justify-center rounded-md bg-muted">
+                          {item.media_type === "movie" ? <Film className="h-5 w-5 text-muted-foreground" /> : <Tv className="h-5 w-5 text-muted-foreground" />}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold">{item.title}</p>
+                        <p className="text-[11px] uppercase tracking-wider text-muted-foreground">{item.media_type} · {item.year ?? "—"}</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          Added by {addedBy?.profiles?.display_name || addedBy?.profiles?.username || "someone"}
+                          {watchedCount > 0 && ` · ${watchedCount} watched`}
+                        </p>
                       </div>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold">{item.title}</p>
-                      <p className="text-[11px] uppercase tracking-wider text-muted-foreground">{item.media_type} · {item.year ?? "—"}</p>
-                      <p className="text-[11px] text-muted-foreground">Added by {addedBy?.profiles?.display_name || addedBy?.profiles?.username || "someone"}</p>
+                      {canRemove && (
+                        <button type="button" onClick={() => handleRemoveNext(item.id)} className="flex h-7 w-7 items-center justify-center rounded-lg text-destructive hover:bg-destructive/10">
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </div>
-                    {canRemove && (
-                      <button type="button" onClick={() => handleRemoveNext(item.id)} className="flex h-7 w-7 items-center justify-center rounded-lg text-destructive hover:bg-destructive/10">
-                        <X className="h-3.5 w-3.5" />
+                    {isMember && (
+                      <button type="button" onClick={() => openWatchedSheet(item.id)}
+                        className={`flex w-full items-center justify-center gap-2 rounded-xl border py-2 text-xs font-semibold transition-colors ${myWatched ? "border-primary/40 bg-primary/10 text-primary" : "border-border bg-background text-foreground hover:bg-muted"}`}>
+                        {myWatched ? "Watched · Edit review" : "Mark as Watched"}
                       </button>
                     )}
                   </div>
@@ -339,14 +395,9 @@ function GroupDetailPage() {
       {!pageLoading && isMember && (
         <section className="mt-8 px-5 pb-8 space-y-2">
           {isOwner ? (
-            <>
-              <button type="button" onClick={() => setOwnershipOpen(true)} className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-4 text-sm font-medium hover:bg-muted">
-                <Crown className="h-4 w-4 text-amber-500" /> Give ownership
-              </button>
-              <button type="button" onClick={() => setDeleteConfirmOpen(true)} className="flex w-full items-center gap-3 rounded-2xl border border-destructive/30 bg-card p-4 text-sm font-medium text-destructive hover:bg-destructive/5">
-                <Trash2 className="h-4 w-4" /> Delete group
-              </button>
-            </>
+            <button type="button" onClick={() => setDeleteConfirmOpen(true)} className="flex w-full items-center gap-3 rounded-2xl border border-destructive/30 bg-card p-4 text-sm font-medium text-destructive hover:bg-destructive/5">
+              <Trash2 className="h-4 w-4" /> Delete group
+            </button>
           ) : (
             <button type="button" onClick={() => setLeaveConfirmOpen(true)} className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-4 text-sm font-medium text-destructive hover:bg-muted">
               <LogOut className="h-4 w-4" /> Leave group
@@ -371,7 +422,7 @@ function GroupDetailPage() {
               {!searching && searchResults.map((r) => (
                 <button key={r.tmdb_id} type="button" onClick={() => handleAddFromTmdb(r)} disabled={adding === r.tmdb_id}
                   className="flex w-full items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5 text-left hover:bg-muted disabled:opacity-60">
-                  {r.poster_path ? <img src={tmdbPosterUrl(r.poster_path, "w92")} alt={r.title} className="h-14 w-10 shrink-0 rounded-md object-cover" /> : (
+                  {r.poster_path ? <img src={tmdbPosterUrl(r.poster_path, "w92")} alt={r.title} className="h-14 w-10 shrink-0 rounded-md object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : (
                     <div className="flex h-14 w-10 shrink-0 items-center justify-center rounded-md bg-muted">{r.media_type === "movie" ? <Film className="h-4 w-4 text-muted-foreground" /> : <Tv className="h-4 w-4 text-muted-foreground" />}</div>
                   )}
                   <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{r.title}</p><p className="text-xs text-muted-foreground">{r.media_type === "movie" ? "Movie" : "TV Show"}{r.year ? ` · ${r.year}` : ""}</p></div>
@@ -400,7 +451,7 @@ function GroupDetailPage() {
               {!nextSearching && nextSearchResults.map((r) => (
                 <button key={r.tmdb_id} type="button" onClick={() => handleAddNextToWatch(r)}
                   className="flex w-full items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5 text-left hover:bg-muted">
-                  {r.poster_path ? <img src={tmdbPosterUrl(r.poster_path, "w92")} alt={r.title} className="h-14 w-10 shrink-0 rounded-md object-cover" /> : (
+                  {r.poster_path ? <img src={tmdbPosterUrl(r.poster_path, "w92")} alt={r.title} className="h-14 w-10 shrink-0 rounded-md object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : (
                     <div className="flex h-14 w-10 shrink-0 items-center justify-center rounded-md bg-muted">{r.media_type === "movie" ? <Film className="h-4 w-4 text-muted-foreground" /> : <Tv className="h-4 w-4 text-muted-foreground" />}</div>
                   )}
                   <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{r.title}</p><p className="text-xs text-muted-foreground">{r.media_type === "movie" ? "Movie" : "TV Show"}{r.year ? ` · ${r.year}` : ""}</p></div>
@@ -426,6 +477,12 @@ function GroupDetailPage() {
               {editImage && <img src={editImage} alt="Preview" className="mt-2 h-24 w-full rounded-xl object-cover" onError={(e) => (e.currentTarget.style.display = "none")} />}
             </div>
             <Button className="w-full" onClick={handleSaveEdit} disabled={!editName.trim() || editSaving}>{editSaving ? "Saving…" : "Save changes"}</Button>
+            {isOwner && (
+              <button type="button" onClick={() => { setEditOpen(false); setOwnershipOpen(true); }}
+                className="flex w-full items-center gap-3 rounded-xl border border-border bg-background p-3 text-sm font-medium hover:bg-muted">
+                <Crown className="h-4 w-4 text-amber-500" /> Give ownership
+              </button>
+            )}
             <div className="pt-2">
               <h3 className="mb-2 text-sm font-semibold">Members</h3>
               <div className="space-y-2">
@@ -477,9 +534,28 @@ function GroupDetailPage() {
         </SheetContent>
       </Sheet>
 
+      {/* Watched sheet */}
+      <Sheet open={!!watchedSheetItemId} onOpenChange={(o) => { if (!o) setWatchedSheetItemId(null); }}>
+        <SheetContent side="bottom" className="rounded-t-3xl border-border bg-card">
+          <SheetHeader><SheetTitle className="text-left">Mark as Watched</SheetTitle></SheetHeader>
+          <div className="mt-4 space-y-4 pb-6">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">Your score</p>
+              <ScoreBadge score={watchedScore} size="lg" />
+            </div>
+            <Slider value={[watchedScore]} onValueChange={(v) => setWatchedScore(v[0])} min={0} max={100} step={1} />
+            <div className="flex justify-between text-xs text-muted-foreground"><span>0</span><span>50</span><span>100</span></div>
+            <Textarea value={watchedText} onChange={(e) => setWatchedText(e.target.value)} placeholder="What did you think?" className="resize-none bg-background" rows={3} />
+            <Button className="w-full" onClick={handleSaveWatched} disabled={watchedSaving}>
+              {watchedSaving ? "Saving…" : "Save"}
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
       <AlertDialog open={leaveConfirmOpen} onOpenChange={setLeaveConfirmOpen}>
         <AlertDialogContent>
-          <AlertDialogHeader><AlertDialogTitle>Leave group?</AlertDialogTitle><AlertDialogDescription>You will need an invite code to rejoin.</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogHeader><AlertDialogTitle>Leave group?</AlertDialogTitle><AlertDialogDescription>Your reviews in this group will be removed. You will need an invite code to rejoin.</AlertDialogDescription></AlertDialogHeader>
           <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleLeaveGroup} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Leave</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

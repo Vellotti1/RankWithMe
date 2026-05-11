@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth-context";
 import { supabase, SUPABASE_URL, SUPABASE_KEY, tmdbPosterUrl, type TasteProfile } from "@/lib/supabase";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/recommendations")({
   component: RecsPage,
@@ -69,6 +70,7 @@ function RecsPage() {
     setGenerating(true);
     const { data: reviews } = await supabase.from("personal_reviews").select("*").eq("user_id", user.id);
     if (!reviews || reviews.length < 3) {
+      toast.error("Rate at least 3 titles first.");
       setGenerating(false);
       return;
     }
@@ -82,11 +84,30 @@ function RecsPage() {
         }),
       });
       const data = await res.json();
-      if (data.summary) {
-        setTasteProfile({ id: "", user_id: user.id, summary: data.summary, genres: data.genres ?? [], updated_at: new Date().toISOString() });
-        await loadRecs();
+      if (data.summary && data.genres?.length) {
+        const newProfile = { id: "", user_id: user.id, summary: data.summary, genres: data.genres, updated_at: new Date().toISOString() };
+        setTasteProfile(newProfile);
+        toast.success("Taste profile generated!");
+        // Load recs directly with the new genres (don't re-fetch from DB which may lag)
+        setRecsLoading(true);
+        const { data: personalReviews } = await supabase.from("personal_reviews").select("tmdb_id").eq("user_id", user.id);
+        const seenIds = personalReviews?.map((r) => r.tmdb_id) ?? [];
+        try {
+          const recsRes = await fetch(`${SUPABASE_URL}/functions/v1/ai-overview`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_KEY}` },
+            body: JSON.stringify({ action: "recommendations", genres: data.genres, already_seen_tmdb_ids: seenIds }),
+          });
+          const recsData = await recsRes.json();
+          setRecs(recsData.results ?? []);
+        } catch { setRecs([]); }
+        setRecsLoading(false);
+      } else {
+        toast.error("Could not generate taste profile. Try adding more reviews.");
       }
-    } catch { /* silent */ }
+    } catch {
+      toast.error("Failed to connect to AI service.");
+    }
     setGenerating(false);
   }
 

@@ -60,13 +60,21 @@ function GroupListPage() {
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Your</p>
             <h1 className="text-2xl font-extrabold tracking-tight">Groups</h1>
           </div>
-          <Link
-            to="/create"
-            className="flex items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90"
-          >
-            <Plus className="h-4 w-4" />
-            New
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              to="/join"
+              className="flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2 text-sm font-semibold hover:bg-muted"
+            >
+              Join
+            </Link>
+            <Link
+              to="/create"
+              className="flex items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90"
+            >
+              <Plus className="h-4 w-4" />
+              New
+            </Link>
+          </div>
         </div>
       </section>
 

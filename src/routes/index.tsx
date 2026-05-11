@@ -149,7 +149,7 @@ function HomePage() {
                 <h2 className="text-base font-semibold">Popular groups</h2>
               </div>
               {popularGroups.length > 3 && (
-                <Link to="/group" className="flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                <Link to="/popular/groups" className="flex items-center gap-1 text-xs font-medium text-primary hover:underline">
                   See all <ArrowRight className="h-3 w-3" />
                 </Link>
               )}
@@ -157,7 +157,7 @@ function HomePage() {
             <div className="flex flex-col gap-3">
               {popularGroups.slice(0, 3).map((g, i) => <PopularGroupCard key={g.id} group={g} rank={i + 1} />)}
               {popularGroups.length > 3 && (
-                <Link to="/group" className="flex items-center justify-center gap-1 rounded-xl border border-border bg-card py-2.5 text-xs font-semibold text-primary hover:bg-muted">
+                <Link to="/popular/groups" className="flex items-center justify-center gap-1 rounded-xl border border-border bg-card py-2.5 text-xs font-semibold text-primary hover:bg-muted">
                   View more <ArrowRight className="h-3 w-3" />
                 </Link>
               )}
@@ -190,7 +190,7 @@ function HomePage() {
                 );
               })}
               {popularMovies.length > 3 && (
-                <Link to="/group" className="flex items-center justify-center gap-1 rounded-xl border border-border bg-card py-2.5 text-xs font-semibold text-primary hover:bg-muted">
+                <Link to="/popular/movies" className="flex items-center justify-center gap-1 rounded-xl border border-border bg-card py-2.5 text-xs font-semibold text-primary hover:bg-muted">
                   View {popularMovies.length - 3} more <ArrowRight className="h-3 w-3" />
                 </Link>
               )}
@@ -223,7 +223,7 @@ function HomePage() {
                 );
               })}
               {popularShows.length > 3 && (
-                <Link to="/group" className="flex items-center justify-center gap-1 rounded-xl border border-border bg-card py-2.5 text-xs font-semibold text-primary hover:bg-muted">
+                <Link to="/popular/shows" className="flex items-center justify-center gap-1 rounded-xl border border-border bg-card py-2.5 text-xs font-semibold text-primary hover:bg-muted">
                   View {popularShows.length - 3} more <ArrowRight className="h-3 w-3" />
                 </Link>
               )}

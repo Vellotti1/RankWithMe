@@ -20,6 +20,9 @@ import { Route as CreateRouteImport } from './routes/create'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as GroupIndexRouteImport } from './routes/group.index'
 import { Route as UserUserIdRouteImport } from './routes/user.$userId'
+import { Route as PopularShowsRouteImport } from './routes/popular.shows'
+import { Route as PopularMoviesRouteImport } from './routes/popular.movies'
+import { Route as PopularGroupsRouteImport } from './routes/popular.groups'
 import { Route as GroupItemIdRouteImport } from './routes/group.$itemId'
 import { Route as MediaGroupIdMediaIdRouteImport } from './routes/media.$groupId.$mediaId'
 import { Route as EpisodeGroupIdMediaIdEpisodeIdRouteImport } from './routes/episode.$groupId.$mediaId.$episodeId'
@@ -79,6 +82,21 @@ const UserUserIdRoute = UserUserIdRouteImport.update({
   path: '/$userId',
   getParentRoute: () => UserRoute,
 } as any)
+const PopularShowsRoute = PopularShowsRouteImport.update({
+  id: '/popular/shows',
+  path: '/popular/shows',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PopularMoviesRoute = PopularMoviesRouteImport.update({
+  id: '/popular/movies',
+  path: '/popular/movies',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PopularGroupsRoute = PopularGroupsRouteImport.update({
+  id: '/popular/groups',
+  path: '/popular/groups',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GroupItemIdRoute = GroupItemIdRouteImport.update({
   id: '/group/$itemId',
   path: '/group/$itemId',
@@ -107,6 +125,9 @@ export interface FileRoutesByFullPath {
   '/review': typeof ReviewRoute
   '/user': typeof UserRouteWithChildren
   '/group/$itemId': typeof GroupItemIdRoute
+  '/popular/groups': typeof PopularGroupsRoute
+  '/popular/movies': typeof PopularMoviesRoute
+  '/popular/shows': typeof PopularShowsRoute
   '/user/$userId': typeof UserUserIdRoute
   '/group/': typeof GroupIndexRoute
   '/media/$groupId/$mediaId': typeof MediaGroupIdMediaIdRoute
@@ -123,6 +144,9 @@ export interface FileRoutesByTo {
   '/review': typeof ReviewRoute
   '/user': typeof UserRouteWithChildren
   '/group/$itemId': typeof GroupItemIdRoute
+  '/popular/groups': typeof PopularGroupsRoute
+  '/popular/movies': typeof PopularMoviesRoute
+  '/popular/shows': typeof PopularShowsRoute
   '/user/$userId': typeof UserUserIdRoute
   '/group': typeof GroupIndexRoute
   '/media/$groupId/$mediaId': typeof MediaGroupIdMediaIdRoute
@@ -140,6 +164,9 @@ export interface FileRoutesById {
   '/review': typeof ReviewRoute
   '/user': typeof UserRouteWithChildren
   '/group/$itemId': typeof GroupItemIdRoute
+  '/popular/groups': typeof PopularGroupsRoute
+  '/popular/movies': typeof PopularMoviesRoute
+  '/popular/shows': typeof PopularShowsRoute
   '/user/$userId': typeof UserUserIdRoute
   '/group/': typeof GroupIndexRoute
   '/media/$groupId/$mediaId': typeof MediaGroupIdMediaIdRoute
@@ -158,6 +185,9 @@ export interface FileRouteTypes {
     | '/review'
     | '/user'
     | '/group/$itemId'
+    | '/popular/groups'
+    | '/popular/movies'
+    | '/popular/shows'
     | '/user/$userId'
     | '/group/'
     | '/media/$groupId/$mediaId'
@@ -174,6 +204,9 @@ export interface FileRouteTypes {
     | '/review'
     | '/user'
     | '/group/$itemId'
+    | '/popular/groups'
+    | '/popular/movies'
+    | '/popular/shows'
     | '/user/$userId'
     | '/group'
     | '/media/$groupId/$mediaId'
@@ -190,6 +223,9 @@ export interface FileRouteTypes {
     | '/review'
     | '/user'
     | '/group/$itemId'
+    | '/popular/groups'
+    | '/popular/movies'
+    | '/popular/shows'
     | '/user/$userId'
     | '/group/'
     | '/media/$groupId/$mediaId'
@@ -207,6 +243,9 @@ export interface RootRouteChildren {
   ReviewRoute: typeof ReviewRoute
   UserRoute: typeof UserRouteWithChildren
   GroupItemIdRoute: typeof GroupItemIdRoute
+  PopularGroupsRoute: typeof PopularGroupsRoute
+  PopularMoviesRoute: typeof PopularMoviesRoute
+  PopularShowsRoute: typeof PopularShowsRoute
   GroupIndexRoute: typeof GroupIndexRoute
   MediaGroupIdMediaIdRoute: typeof MediaGroupIdMediaIdRoute
   EpisodeGroupIdMediaIdEpisodeIdRoute: typeof EpisodeGroupIdMediaIdEpisodeIdRoute
@@ -291,6 +330,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UserUserIdRouteImport
       parentRoute: typeof UserRoute
     }
+    '/popular/shows': {
+      id: '/popular/shows'
+      path: '/popular/shows'
+      fullPath: '/popular/shows'
+      preLoaderRoute: typeof PopularShowsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/popular/movies': {
+      id: '/popular/movies'
+      path: '/popular/movies'
+      fullPath: '/popular/movies'
+      preLoaderRoute: typeof PopularMoviesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/popular/groups': {
+      id: '/popular/groups'
+      path: '/popular/groups'
+      fullPath: '/popular/groups'
+      preLoaderRoute: typeof PopularGroupsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/group/$itemId': {
       id: '/group/$itemId'
       path: '/group/$itemId'
@@ -336,6 +396,9 @@ const rootRouteChildren: RootRouteChildren = {
   ReviewRoute: ReviewRoute,
   UserRoute: UserRouteWithChildren,
   GroupItemIdRoute: GroupItemIdRoute,
+  PopularGroupsRoute: PopularGroupsRoute,
+  PopularMoviesRoute: PopularMoviesRoute,
+  PopularShowsRoute: PopularShowsRoute,
   GroupIndexRoute: GroupIndexRoute,
   MediaGroupIdMediaIdRoute: MediaGroupIdMediaIdRoute,
   EpisodeGroupIdMediaIdEpisodeIdRoute: EpisodeGroupIdMediaIdEpisodeIdRoute,

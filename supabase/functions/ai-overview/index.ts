@@ -190,6 +190,30 @@ Genres must be from this list: Action, Adventure, Animation, Comedy, Crime, Docu
       });
     }
 
+    // ── User profile AI overview ────────────────────────────────────────────
+    if (action === "profile_overview") {
+      const { reviews } = body;
+      if (!reviews || reviews.length < 1) {
+        return new Response(JSON.stringify({ overview: null }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const reviewLines = reviews
+        .map((r: any) => `- "${r.title}" (${r.media_type}, ${r.year ?? "?"}): ${r.score}/100${r.text ? ` — "${r.text}"` : ""}`)
+        .join("\n");
+
+      const prompt = `Based on this user's ratings history, write a short 2-3 sentence AI overview of their overall taste and critical takes. Mention what they tend to love, what they've rated highly, and any patterns you notice. Write naturally and conversationally as if describing this person's taste to a friend. Don't use bullet points.
+
+Ratings:
+${reviewLines}`;
+
+      const overview = await callClaude(ANTHROPIC_KEY, prompt, 300);
+      return new Response(JSON.stringify({ overview }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Unknown action" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
