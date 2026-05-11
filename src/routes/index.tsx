@@ -30,8 +30,7 @@ function HomePage() {
     async function load() {
       setDataLoading(true);
 
-      // Load public groups
-      const { data: groups } = await supabase.from("groups").select("*").eq("is_public", true).order("view_count", { ascending: false }).limit(5);
+      const { data: groups } = await supabase.from("groups").select("*").eq("is_public", true).order("view_count", { ascending: false }).limit(6);
       if (groups?.length) {
         const withCounts = await Promise.all(groups.map(async (g) => {
           const { count } = await supabase.from("group_members").select("*", { count: "exact", head: true }).eq("group_id", g.id);
@@ -40,7 +39,6 @@ function HomePage() {
         setPopularGroups(withCounts);
       }
 
-      // Load popular movies (most reviews)
       const { data: allMovies } = await supabase.from("media_items").select("*").eq("media_type", "movie");
       if (allMovies?.length) {
         const withAvg = await Promise.all(allMovies.map(async (item) => {
@@ -52,7 +50,6 @@ function HomePage() {
         setPopularMovies(withAvg.filter((m) => m.review_count > 0).sort((a, b) => b.review_count - a.review_count).slice(0, 6));
       }
 
-      // Load popular shows
       const { data: allShows } = await supabase.from("media_items").select("*").eq("media_type", "show");
       if (allShows?.length) {
         const withAvg = await Promise.all(allShows.map(async (item) => {
@@ -72,7 +69,7 @@ function HomePage() {
   useEffect(() => {
     if (!user) return;
     async function loadMyGroups() {
-      const { data } = await supabase.from("group_members").select("groups(*)").eq("user_id", user!.id).limit(4);
+      const { data } = await supabase.from("group_members").select("groups(*)").eq("user_id", user!.id).limit(6);
       if (data) setMyGroups(data.map((row: any) => row.groups).filter(Boolean) as Group[]);
     }
     loadMyGroups();
@@ -113,10 +110,12 @@ function HomePage() {
           <section className="px-5 pb-5">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-base font-semibold">Your groups</h2>
-              <Link to="/group" className="flex items-center gap-1 text-xs font-medium text-primary hover:underline">See all <ArrowRight className="h-3 w-3" /></Link>
+              <Link to="/group" className="flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                See all <ArrowRight className="h-3 w-3" />
+              </Link>
             </div>
             <div className="flex flex-col gap-2">
-              {myGroups.map((g) => (
+              {myGroups.slice(0, 3).map((g) => (
                 <Link key={g.id} to="/group/$itemId" params={{ itemId: g.id }} className="flex overflow-hidden rounded-xl border border-border bg-card transition-colors hover:bg-muted">
                   {g.image_url ? (
                     <div className="h-16 w-20 shrink-0 overflow-hidden"><img src={g.image_url} alt={g.name} className="h-full w-full object-cover" /></div>
@@ -132,6 +131,36 @@ function HomePage() {
                   </div>
                 </Link>
               ))}
+              {myGroups.length > 3 && (
+                <Link to="/group" className="flex items-center justify-center gap-1 rounded-xl border border-border bg-card py-2.5 text-xs font-semibold text-primary hover:bg-muted">
+                  View {myGroups.length - 3} more <ArrowRight className="h-3 w-3" />
+                </Link>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* Popular Groups */}
+        {popularGroups.length > 0 && (
+          <section className="px-5 pb-5">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-primary" />
+                <h2 className="text-base font-semibold">Popular groups</h2>
+              </div>
+              {popularGroups.length > 3 && (
+                <Link to="/group" className="flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                  See all <ArrowRight className="h-3 w-3" />
+                </Link>
+              )}
+            </div>
+            <div className="flex flex-col gap-3">
+              {popularGroups.slice(0, 3).map((g, i) => <PopularGroupCard key={g.id} group={g} rank={i + 1} />)}
+              {popularGroups.length > 3 && (
+                <Link to="/group" className="flex items-center justify-center gap-1 rounded-xl border border-border bg-card py-2.5 text-xs font-semibold text-primary hover:bg-muted">
+                  View more <ArrowRight className="h-3 w-3" />
+                </Link>
+              )}
             </div>
           </section>
         )}
@@ -144,7 +173,7 @@ function HomePage() {
               <h2 className="text-base font-semibold">Popular Movies</h2>
             </div>
             <div className="flex flex-col gap-2">
-              {popularMovies.map((item, idx) => {
+              {popularMovies.slice(0, 3).map((item, idx) => {
                 const poster = item.tmdb_poster_path ? tmdbPosterUrl(item.tmdb_poster_path, "w154") : item.poster_url;
                 return (
                   <div key={item.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
@@ -160,6 +189,11 @@ function HomePage() {
                   </div>
                 );
               })}
+              {popularMovies.length > 3 && (
+                <Link to="/group" className="flex items-center justify-center gap-1 rounded-xl border border-border bg-card py-2.5 text-xs font-semibold text-primary hover:bg-muted">
+                  View {popularMovies.length - 3} more <ArrowRight className="h-3 w-3" />
+                </Link>
+              )}
             </div>
           </section>
         )}
@@ -172,7 +206,7 @@ function HomePage() {
               <h2 className="text-base font-semibold">Popular Shows</h2>
             </div>
             <div className="flex flex-col gap-2">
-              {popularShows.map((item, idx) => {
+              {popularShows.slice(0, 3).map((item, idx) => {
                 const poster = item.tmdb_poster_path ? tmdbPosterUrl(item.tmdb_poster_path, "w154") : item.poster_url;
                 return (
                   <div key={item.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
@@ -188,19 +222,11 @@ function HomePage() {
                   </div>
                 );
               })}
-            </div>
-          </section>
-        )}
-
-        {/* Popular Groups */}
-        {popularGroups.length > 0 && (
-          <section className="px-5 pb-8">
-            <div className="mb-3 flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-primary" />
-              <h2 className="text-base font-semibold">Popular groups</h2>
-            </div>
-            <div className="flex flex-col gap-3">
-              {popularGroups.map((g, i) => <PopularGroupCard key={g.id} group={g} rank={i + 1} />)}
+              {popularShows.length > 3 && (
+                <Link to="/group" className="flex items-center justify-center gap-1 rounded-xl border border-border bg-card py-2.5 text-xs font-semibold text-primary hover:bg-muted">
+                  View {popularShows.length - 3} more <ArrowRight className="h-3 w-3" />
+                </Link>
+              )}
             </div>
           </section>
         )}

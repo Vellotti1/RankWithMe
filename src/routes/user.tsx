@@ -42,13 +42,29 @@ function UserPage() {
   const loadSocial = useCallback(async () => {
     if (!user) return;
     const [followersRes, followingRes, tasteRes, reviewsRes] = await Promise.all([
-      supabase.from("follows").select("*, profiles!follows_follower_id_fkey(*)").eq("following_id", user.id),
-      supabase.from("follows").select("*, profiles!follows_following_id_fkey(*)").eq("follower_id", user.id),
+      supabase.from("follows").select("id, follower_id, following_id").eq("following_id", user.id),
+      supabase.from("follows").select("id, follower_id, following_id").eq("follower_id", user.id),
       supabase.from("taste_profiles").select("*").eq("user_id", user.id).maybeSingle(),
       supabase.from("personal_reviews").select("*").eq("user_id", user.id).order("updated_at", { ascending: false }),
     ]);
-    if (followersRes.data) setFollowers(followersRes.data as any);
-    if (followingRes.data) setFollowing(followingRes.data as any);
+
+    const followerRows = followersRes.data ?? [];
+    const followingRows = followingRes.data ?? [];
+
+    // Fetch profiles for all unique user IDs involved
+    const allUserIds = Array.from(new Set([
+      ...followerRows.map((f) => f.follower_id),
+      ...followingRows.map((f) => f.following_id),
+    ]));
+
+    let profileMap: Record<string, Profile> = {};
+    if (allUserIds.length > 0) {
+      const { data: profileRows } = await supabase.from("profiles").select("*").in("id", allUserIds);
+      for (const p of profileRows ?? []) profileMap[p.id] = p;
+    }
+
+    setFollowers(followerRows.map((f) => ({ ...f, profiles: profileMap[f.follower_id] })) as any);
+    setFollowing(followingRows.map((f) => ({ ...f, profiles: profileMap[f.following_id] })) as any);
     if (tasteRes.data) setTasteProfile(tasteRes.data);
     if (reviewsRes.data) setPersonalReviews(reviewsRes.data);
   }, [user]);

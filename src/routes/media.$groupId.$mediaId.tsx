@@ -200,13 +200,32 @@ function MediaDetailPage() {
       { media_item_id: mediaId, user_id: user.id, score: draftScore, text: draftText, updated_at: new Date().toISOString() },
       { onConflict: "media_item_id,user_id" }
     );
+
+    // Sync to personal_reviews if item has a tmdb_id
+    if (!error && item.tmdb_id) {
+      await supabase.from("personal_reviews").upsert(
+        {
+          user_id: user.id,
+          tmdb_id: item.tmdb_id,
+          title: item.title,
+          media_type: item.media_type,
+          year: item.year,
+          poster_path: item.tmdb_poster_path,
+          description: item.description ?? "",
+          score: draftScore,
+          text: draftText,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id,tmdb_id" }
+      );
+    }
+
     setSaving(false);
     if (error) {
       toast.error("Failed to save review.");
     } else {
       toast.success("Review saved!");
       setRateOpen(false);
-      // Reset so overview reloads after this review change
       overviewLoadedForCount.current = -1;
       loadData();
     }

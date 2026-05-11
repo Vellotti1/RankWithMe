@@ -78,7 +78,7 @@ function ReviewPage() {
   }, [searchQuery]);
 
   function openRate(result: TmdbResult) {
-    const existing = myReviews.find((r) => r.tmdb_id === result.tmdb_id);
+    const existing = myReviews.find((r) => Number(r.tmdb_id) === Number(result.tmdb_id));
     setSelectedResult(result);
     setDraftScore(existing?.score ?? 80);
     setDraftText(existing?.text ?? "");
@@ -222,7 +222,7 @@ function ReviewPage() {
             <p className="py-6 text-center text-sm text-muted-foreground">No results found.</p>
           )}
           {!searching && searchResults.map((r) => {
-            const existing = myReviews.find((rev) => rev.tmdb_id === r.tmdb_id);
+            const existing = myReviews.find((rev) => Number(rev.tmdb_id) === Number(r.tmdb_id));
             return (
               <button
                 key={r.tmdb_id}
