@@ -10,6 +10,7 @@ import {
 
 import appCss from "../styles.css?url";
 import { CurrentUserProvider } from "@/lib/current-user";
+import { Toaster } from "@/components/ui/sonner";
 
 function NotFoundComponent() {
   return (
@@ -116,6 +117,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <CurrentUserProvider>
         <Outlet />
+        <Toaster position="top-center" />
       </CurrentUserProvider>
     </QueryClientProvider>
   );
