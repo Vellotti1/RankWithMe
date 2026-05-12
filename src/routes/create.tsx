@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Globe, Lock } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { supabase } from "@/lib/supabase";
+import { supabase, recalculateGroupStars } from "@/lib/supabase";
 
 export const Route = createFileRoute("/create")({
   component: CreatePage,
@@ -60,6 +60,7 @@ function CreatePage() {
     });
 
     toast.success("Group created!");
+    recalculateGroupStars(group.id).catch(() => {});
     navigate({ to: "/group/$itemId", params: { itemId: group.id } });
   }
 

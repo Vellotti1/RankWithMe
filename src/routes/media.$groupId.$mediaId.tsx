@@ -3,12 +3,12 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { AppShell } from "@/components/AppShell";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
-import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { ReviewForm } from "@/components/ReviewForm";
+import { VoiceReviewPlayer } from "@/components/VoiceReviewPlayer";
 import { useAuth } from "@/lib/auth-context";
 import {
-  supabase, tmdbPosterUrl, tmdbStillUrl, callEdgeFunction,
+  supabase, tmdbPosterUrl, tmdbStillUrl, callEdgeFunction, recalculateGroupStars,
   type MediaItem, type Profile, type Review, type Episode,
 } from "@/lib/supabase";
 import { ChevronLeft, Film, Tv, Star, Sparkles, Users, ChevronRight, ChevronDown } from "lucide-react";
@@ -48,6 +48,7 @@ function MediaDetailPage() {
   const [rateOpen, setRateOpen] = useState(false);
   const [draftScore, setDraftScore] = useState(80);
   const [draftText, setDraftText] = useState("");
+  const [reviewType, setReviewType] = useState<"text" | "voice">("text");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -184,35 +185,82 @@ function MediaDetailPage() {
       .from("reviews").select("*")
       .eq("media_item_id", mediaId).eq("user_id", user.id).maybeSingle();
     setDraftScore(data?.score ?? 80);
-    setDraftText(data?.text ?? "");
+    setDraftText((data as any)?.review_type === "voice" ? "" : (data?.text ?? ""));
+    setReviewType((data as any)?.review_type === "voice" ? "voice" : "text");
     setRateOpen(true);
   }
 
-  async function handleSaveReview() {
+  async function handleSaveReview(data: { score: number; review_type: "text" | "voice"; text: string; voice_audio_url: string | null; voice_duration_seconds: number | null }) {
     if (!user || !item) return;
     setSaving(true);
-    const { error } = await supabase.from("reviews").upsert(
-      { media_item_id: mediaId, user_id: user.id, score: draftScore, text: draftText, updated_at: new Date().toISOString() },
+    const reviewRow: Record<string, any> = {
+      media_item_id: mediaId,
+      user_id: user.id,
+      score: data.score,
+      text: data.review_type === "text" ? data.text : "",
+      review_type: data.review_type,
+      voice_audio_url: data.review_type === "voice" ? data.voice_audio_url : null,
+      voice_duration_seconds: data.review_type === "voice" ? data.voice_duration_seconds : null,
+      updated_at: new Date().toISOString(),
+    };
+    const { data: upserted, error } = await supabase.from("reviews").upsert(
+      reviewRow,
       { onConflict: "media_item_id,user_id" }
-    );
+    ).select().maybeSingle();
 
     // Sync to personal_reviews if item has a tmdb_id
     if (!error && item.tmdb_id) {
-      await supabase.from("personal_reviews").upsert(
-        {
+      const personalRow: Record<string, any> = {
+        user_id: user.id,
+        tmdb_id: item.tmdb_id,
+        title: item.title,
+        media_type: item.media_type,
+        year: item.year,
+        poster_path: item.tmdb_poster_path,
+        description: item.description ?? "",
+        score: data.score,
+        text: data.review_type === "text" ? data.text : "",
+        review_type: data.review_type,
+        voice_audio_url: data.review_type === "voice" ? data.voice_audio_url : null,
+        voice_duration_seconds: data.review_type === "voice" ? data.voice_duration_seconds : null,
+        updated_at: new Date().toISOString(),
+      };
+      const { data: personalUpserted } = await supabase.from("personal_reviews").upsert(
+        personalRow,
+        { onConflict: "user_id,tmdb_id" }
+      ).select().maybeSingle();
+
+      // Trigger voice summary for personal review
+      if (data.review_type === "voice" && personalUpserted) {
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/voice-summary`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
+          body: JSON.stringify({
+            review_id: personalUpserted.id,
+            table: "personal_reviews",
+            user_id: user.id,
+            title: item.title,
+            media_type: item.media_type,
+            duration_seconds: data.voice_duration_seconds ?? 0,
+          }),
+        }).catch(() => {});
+      }
+    }
+
+    // Trigger voice summary for group review
+    if (!error && data.review_type === "voice" && upserted) {
+      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/voice-summary`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
+        body: JSON.stringify({
+          review_id: upserted.id,
+          table: "reviews",
           user_id: user.id,
-          tmdb_id: item.tmdb_id,
           title: item.title,
           media_type: item.media_type,
-          year: item.year,
-          poster_path: item.tmdb_poster_path,
-          description: item.description ?? "",
-          score: draftScore,
-          text: draftText,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id,tmdb_id" }
-      );
+          duration_seconds: data.voice_duration_seconds ?? 0,
+        }),
+      }).catch(() => {});
     }
 
     // Post review stamp to group chat
@@ -224,7 +272,7 @@ function MediaDetailPage() {
         message_type: "review_stamp",
         metadata: {
           title: item.title,
-          score: draftScore,
+          score: data.score,
           media_type: item.media_type,
           media_item_id: mediaId,
         },
@@ -239,6 +287,7 @@ function MediaDetailPage() {
       setRateOpen(false);
       overviewLoadedForCount.current = -1;
       loadData();
+      recalculateGroupStars(groupId).catch(() => {});
     }
   }
 
@@ -431,23 +480,34 @@ function MediaDetailPage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {reviews.map((r) => (
-                    <div key={r.id} className="flex gap-3 rounded-2xl border border-border bg-card p-4">
-                      <Link to="/user/$userId" params={{ userId: r.user_id }} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground hover:opacity-80 transition-opacity">
-                        {(r.profiles?.display_name || r.profiles?.username || "?").slice(0, 2).toUpperCase()}
-                      </Link>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <Link to="/user/$userId" params={{ userId: r.user_id }} className="text-sm font-semibold hover:text-primary transition-colors">
-                            {r.profiles?.display_name || r.profiles?.username || "Unknown"}
-                            {r.user_id === user.id && <span className="ml-1.5 text-xs font-normal text-primary">(you)</span>}
-                          </Link>
-                          <ScoreBadge score={r.score} size="sm" />
+                  {reviews.map((r) => {
+                    const isVoice = (r as any).review_type === "voice" && (r as any).voice_audio_url;
+                    return (
+                      <div key={r.id} className="flex gap-3 rounded-2xl border border-border bg-card p-4">
+                        <Link to="/user/$userId" params={{ userId: r.user_id }} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground hover:opacity-80 transition-opacity">
+                          {(r.profiles?.display_name || r.profiles?.username || "?").slice(0, 2).toUpperCase()}
+                        </Link>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <Link to="/user/$userId" params={{ userId: r.user_id }} className="text-sm font-semibold hover:text-primary transition-colors">
+                              {r.profiles?.display_name || r.profiles?.username || "Unknown"}
+                              {r.user_id === user.id && <span className="ml-1.5 text-xs font-normal text-primary">(you)</span>}
+                            </Link>
+                            <ScoreBadge score={r.score} size="sm" />
+                          </div>
+                          {isVoice ? (
+                            <VoiceReviewPlayer
+                              audioUrl={(r as any).voice_audio_url}
+                              summary={(r as any).voice_summary}
+                              duration={(r as any).voice_duration_seconds}
+                            />
+                          ) : (
+                            r.text && <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{r.text}</p>
+                          )}
                         </div>
-                        {r.text && <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{r.text}</p>}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </section>
@@ -460,21 +520,26 @@ function MediaDetailPage() {
 
       {/* Rate sheet — movies only */}
       <Sheet open={rateOpen} onOpenChange={setRateOpen}>
-        <SheetContent side="bottom" className="rounded-t-3xl border-border bg-card">
+        <SheetContent side="bottom" className="rounded-t-3xl border-border bg-card max-h-[85vh] overflow-y-auto">
           <SheetHeader>
             <SheetTitle>{item?.title}</SheetTitle>
           </SheetHeader>
-          <div className="mt-4 space-y-4 pb-6">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium">Your score</p>
-              <ScoreBadge score={draftScore} size="lg" />
-            </div>
-            <Slider value={[draftScore]} onValueChange={(v) => setDraftScore(v[0])} min={0} max={100} step={1} />
-            <div className="flex justify-between text-xs text-muted-foreground"><span>0</span><span>50</span><span>100</span></div>
-            <Textarea value={draftText} onChange={(e) => setDraftText(e.target.value)} placeholder="Write a quick review for the group…" className="resize-none bg-background" rows={4} />
-            <Button className="w-full" onClick={handleSaveReview} disabled={saving}>
-              {saving ? "Saving…" : "Save rating & review"}
-            </Button>
+          <div className="mt-4 pb-6">
+            <ReviewForm
+              score={draftScore}
+              onScoreChange={setDraftScore}
+              text={draftText}
+              onTextChange={setDraftText}
+              reviewType={reviewType}
+              onReviewTypeChange={setReviewType}
+              onSave={handleSaveReview}
+              saving={saving}
+              saveLabel="Save rating & review"
+              textPlaceholder="Write a quick review for the group…"
+              mediaTitle={item?.title}
+              mediaType={item?.media_type}
+              userId={user?.id ?? ""}
+            />
           </div>
         </SheetContent>
       </Sheet>

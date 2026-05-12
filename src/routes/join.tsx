@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
-import { supabase } from "@/lib/supabase";
+import { supabase, recalculateGroupStars } from "@/lib/supabase";
 
 export const Route = createFileRoute("/join")({
   component: JoinPage,
@@ -98,16 +98,25 @@ function JoinPage() {
         }
 
         if (mediaItemId) {
-          await supabase.from("reviews").upsert(
-            { media_item_id: mediaItemId, user_id: user.id, score: pr.score, text: pr.text ?? "", updated_at: new Date().toISOString() },
-            { onConflict: "media_item_id,user_id" }
-          );
+          const reviewRow: Record<string, any> = {
+            media_item_id: mediaItemId,
+            user_id: user.id,
+            score: pr.score,
+            text: (pr as any).review_type === "voice" ? "" : (pr.text ?? ""),
+            review_type: (pr as any).review_type ?? "text",
+            voice_audio_url: (pr as any).review_type === "voice" ? (pr as any).voice_audio_url : null,
+            voice_duration_seconds: (pr as any).review_type === "voice" ? (pr as any).voice_duration_seconds : null,
+            voice_summary: (pr as any).review_type === "voice" ? (pr as any).voice_summary : null,
+            updated_at: new Date().toISOString(),
+          };
+          await supabase.from("reviews").upsert(reviewRow, { onConflict: "media_item_id,user_id" });
         }
       }
     }
 
     setLoading(false);
     toast.success(`Joined "${group.name}"!`);
+    recalculateGroupStars(group.id).catch(() => {});
     navigate({ to: "/group/$itemId", params: { itemId: group.id } });
   }
 

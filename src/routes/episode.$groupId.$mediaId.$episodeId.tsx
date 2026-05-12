@@ -3,9 +3,9 @@ import { useEffect, useState, useCallback } from "react";
 import { AppShell } from "@/components/AppShell";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
-import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { ReviewForm } from "@/components/ReviewForm";
+import { VoiceReviewPlayer } from "@/components/VoiceReviewPlayer";
 import { useAuth } from "@/lib/auth-context";
 import { supabase, tmdbStillUrl, type Episode, type EpisodeReview, type Profile } from "@/lib/supabase";
 import { ChevronLeft, Tv, Star, Users } from "lucide-react";
@@ -30,6 +30,7 @@ function EpisodeDetailPage() {
   const [rateOpen, setRateOpen] = useState(false);
   const [draftScore, setDraftScore] = useState(80);
   const [draftText, setDraftText] = useState("");
+  const [reviewType, setReviewType] = useState<"text" | "voice">("text");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -66,17 +67,28 @@ function EpisodeDetailPage() {
       .eq("user_id", user.id)
       .maybeSingle();
     setDraftScore(data?.score ?? 80);
-    setDraftText(data?.text ?? "");
+    setDraftText((data as any)?.review_type === "voice" ? "" : (data?.text ?? ""));
+    setReviewType((data as any)?.review_type === "voice" ? "voice" : "text");
     setRateOpen(true);
   }
 
-  async function handleSaveReview() {
+  async function handleSaveReview(data: { score: number; review_type: "text" | "voice"; text: string; voice_audio_url: string | null; voice_duration_seconds: number | null }) {
     if (!user || !episode) return;
     setSaving(true);
-    const { error } = await supabase.from("episode_reviews").upsert(
-      { episode_id: episodeId, user_id: user.id, score: draftScore, text: draftText, updated_at: new Date().toISOString() },
+    const reviewRow: Record<string, any> = {
+      episode_id: episodeId,
+      user_id: user.id,
+      score: data.score,
+      text: data.review_type === "text" ? data.text : "",
+      review_type: data.review_type,
+      voice_audio_url: data.review_type === "voice" ? data.voice_audio_url : null,
+      voice_duration_seconds: data.review_type === "voice" ? data.voice_duration_seconds : null,
+      updated_at: new Date().toISOString(),
+    };
+    const { data: upserted, error } = await supabase.from("episode_reviews").upsert(
+      reviewRow,
       { onConflict: "episode_id,user_id" }
-    );
+    ).select().maybeSingle();
     setSaving(false);
     if (error) {
       toast.error("Failed to save review.");
@@ -84,6 +96,21 @@ function EpisodeDetailPage() {
       toast.success("Review saved!");
       setRateOpen(false);
       loadData();
+      // Trigger voice summary
+      if (data.review_type === "voice" && upserted) {
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/voice-summary`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
+          body: JSON.stringify({
+            review_id: upserted.id,
+            table: "episode_reviews",
+            user_id: user.id,
+            title: episode.title,
+            media_type: "show",
+            duration_seconds: data.voice_duration_seconds ?? 0,
+          }),
+        }).catch(() => {});
+      }
     }
   }
 
@@ -172,23 +199,34 @@ function EpisodeDetailPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {reviews.map((r) => (
-                  <div key={r.id} className="flex gap-3 rounded-2xl border border-border bg-card p-4">
-                    <Link to="/user/$userId" params={{ userId: r.user_id }} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground hover:opacity-80 transition-opacity">
-                      {(r.profiles?.display_name || r.profiles?.username || "?").slice(0, 2).toUpperCase()}
-                    </Link>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <Link to="/user/$userId" params={{ userId: r.user_id }} className="text-sm font-semibold hover:text-primary transition-colors">
-                          {r.profiles?.display_name || r.profiles?.username || "Unknown"}
-                          {r.user_id === user.id && <span className="ml-1.5 text-xs font-normal text-primary">(you)</span>}
-                        </Link>
-                        <ScoreBadge score={r.score} size="sm" />
+                {reviews.map((r) => {
+                  const isVoice = (r as any).review_type === "voice" && (r as any).voice_audio_url;
+                  return (
+                    <div key={r.id} className="flex gap-3 rounded-2xl border border-border bg-card p-4">
+                      <Link to="/user/$userId" params={{ userId: r.user_id }} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground hover:opacity-80 transition-opacity">
+                        {(r.profiles?.display_name || r.profiles?.username || "?").slice(0, 2).toUpperCase()}
+                      </Link>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <Link to="/user/$userId" params={{ userId: r.user_id }} className="text-sm font-semibold hover:text-primary transition-colors">
+                            {r.profiles?.display_name || r.profiles?.username || "Unknown"}
+                            {r.user_id === user.id && <span className="ml-1.5 text-xs font-normal text-primary">(you)</span>}
+                          </Link>
+                          <ScoreBadge score={r.score} size="sm" />
+                        </div>
+                        {isVoice ? (
+                          <VoiceReviewPlayer
+                            audioUrl={(r as any).voice_audio_url}
+                            summary={(r as any).voice_summary}
+                            duration={(r as any).voice_duration_seconds}
+                          />
+                        ) : (
+                          r.text && <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{r.text}</p>
+                        )}
                       </div>
-                      {r.text && <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{r.text}</p>}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </section>
@@ -196,7 +234,7 @@ function EpisodeDetailPage() {
       )}
 
       <Sheet open={rateOpen} onOpenChange={setRateOpen}>
-        <SheetContent side="bottom" className="rounded-t-3xl border-border bg-card">
+        <SheetContent side="bottom" className="rounded-t-3xl border-border bg-card max-h-[85vh] overflow-y-auto">
           <SheetHeader>
             <SheetTitle className="text-left">
               <span className="block text-xs font-normal text-muted-foreground">
@@ -205,17 +243,22 @@ function EpisodeDetailPage() {
               {episode?.title}
             </SheetTitle>
           </SheetHeader>
-          <div className="mt-4 space-y-4 pb-6">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium">Your score</p>
-              <ScoreBadge score={draftScore} size="lg" />
-            </div>
-            <Slider value={[draftScore]} onValueChange={(v) => setDraftScore(v[0])} min={0} max={100} step={1} />
-            <div className="flex justify-between text-xs text-muted-foreground"><span>0</span><span>50</span><span>100</span></div>
-            <Textarea value={draftText} onChange={(e) => setDraftText(e.target.value)} placeholder="What did you think of this episode?" className="resize-none bg-background" rows={4} />
-            <Button className="w-full" onClick={handleSaveReview} disabled={saving}>
-              {saving ? "Saving…" : "Save rating & review"}
-            </Button>
+          <div className="mt-4 pb-6">
+            <ReviewForm
+              score={draftScore}
+              onScoreChange={setDraftScore}
+              text={draftText}
+              onTextChange={setDraftText}
+              reviewType={reviewType}
+              onReviewTypeChange={setReviewType}
+              onSave={handleSaveReview}
+              saving={saving}
+              saveLabel="Save rating & review"
+              textPlaceholder="What did you think of this episode?"
+              mediaTitle={episode?.title}
+              mediaType="show"
+              userId={user?.id ?? ""}
+            />
           </div>
         </SheetContent>
       </Sheet>

@@ -9,8 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/lib/auth-context";
-import { supabase, SUPABASE_URL, SUPABASE_KEY, tmdbPosterUrl, type Group, type MediaItem, type Profile, type GroupNextToWatch } from "@/lib/supabase";
-import { ChevronLeft, Copy, Users, Plus, Lock, Globe, Settings, Film, Tv, Search, X, Trash2, LogOut, Crown, Bookmark, MessageSquare, EyeOff, Eye, Send, Star } from "lucide-react";
+import { supabase, SUPABASE_URL, SUPABASE_KEY, tmdbPosterUrl, type Group, type MediaItem, type Profile, type GroupNextToWatch, calcGroupLevel, recalculateGroupStars } from "@/lib/supabase";
+import { ChevronLeft, Copy, Users, Plus, Lock, Globe, Settings, Film, Tv, Search, X, Trash2, LogOut, Crown, Bookmark, MessageSquare, EyeOff, Eye, Send, Star, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/group/$itemId")({
@@ -75,6 +75,9 @@ function GroupDetailPage() {
   // Members sheet
   const [membersOpen, setMembersOpen] = useState(false);
 
+  // Starred media
+  const [starredMediaIds, setStarredMediaIds] = useState<Set<string>>(new Set());
+
   // Hidden items state (for owner UI)
   const [showHiddenPanel, setShowHiddenPanel] = useState(false);
 
@@ -83,19 +86,21 @@ function GroupDetailPage() {
   const loadData = useCallback(async () => {
     if (!user) return;
     setPageLoading(true);
-    const [groupRes, membersRes, itemsRes, nextRes, watchedRes, chatRes] = await Promise.all([
+    const [groupRes, membersRes, itemsRes, nextRes, watchedRes, chatRes, starredRes] = await Promise.all([
       supabase.from("groups").select("*").eq("id", groupId).maybeSingle(),
       supabase.from("group_members").select("id, user_id, role, profiles(*)").eq("group_id", groupId),
       supabase.from("media_items").select("*").eq("group_id", groupId),
       supabase.from("group_next_to_watch").select("*").eq("group_id", groupId).order("created_at"),
       supabase.from("group_next_to_watch_watched").select("id, item_id, user_id, score, text"),
       supabase.from("group_chat_messages").select("*").eq("group_id", groupId).order("created_at").limit(100),
+      supabase.from("group_starred_media").select("media_item_id").eq("group_id", groupId),
     ]);
     if (groupRes.data) setGroup(groupRes.data);
     if (membersRes.data) setMembers(membersRes.data.map((r: any) => ({ ...r, profiles: r.profiles })).filter((r: any) => r.profiles));
     if (nextRes.data) setNextItems(nextRes.data);
     if (watchedRes.data) setWatchedRecords(watchedRes.data as any);
     if (chatRes.data) setChatMessages(chatRes.data as any);
+    if (starredRes.data) setStarredMediaIds(new Set(starredRes.data.map((s: any) => s.media_item_id)));
     if (itemsRes.data) {
       const withAvg = await Promise.all(itemsRes.data.map(async (item) => {
         const { data: reviews } = await supabase.from("reviews").select("score").eq("media_item_id", item.id);
@@ -103,7 +108,12 @@ function GroupDetailPage() {
         const avg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
         return { ...item, avg, review_count: scores.length } as MediaWithAvg;
       }));
-      setMediaItems(withAvg.sort((a, b) => b.avg - a.avg));
+      setMediaItems(withAvg.sort((a, b) => {
+        const aStarred = starredRes.data?.some((s: any) => s.media_item_id === a.id) ? 1 : 0;
+        const bStarred = starredRes.data?.some((s: any) => s.media_item_id === b.id) ? 1 : 0;
+        if (aStarred !== bStarred) return bStarred - aStarred;
+        return b.avg - a.avg;
+      }));
     }
     setPageLoading(false);
   }, [groupId, user]);
@@ -192,6 +202,7 @@ function GroupDetailPage() {
     const { error } = await supabase.from("group_members").delete().eq("id", memberId);
     if (error) { toast.error("Failed to remove member."); return; }
     toast.success("Member removed."); loadData();
+    recalculateGroupStars(groupId).catch(() => {});
   }
 
   async function handleLeaveGroup() {
@@ -199,6 +210,7 @@ function GroupDetailPage() {
     await removeUserFromGroup(user.id);
     const { error } = await supabase.from("group_members").delete().eq("group_id", groupId).eq("user_id", user.id);
     if (error) { toast.error("Failed to leave group."); return; }
+    recalculateGroupStars(groupId).catch(() => {});
     toast.success("You left the group."); navigate({ to: "/group" });
   }
 
@@ -305,6 +317,39 @@ function GroupDetailPage() {
                 </button>
               )}
             </div>
+            {/* Group Level & Stars */}
+            {group && (() => {
+              const info = calcGroupLevel(group.total_stars ?? 0, members.length);
+              return (
+                <div className="mt-3 rounded-2xl border border-border bg-card p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-primary" />
+                      {info.levelingUnlocked ? (
+                        <span className="text-sm font-bold">Level {info.level}</span>
+                      ) : (
+                        <span className="text-sm font-semibold text-muted-foreground">Leveling unlocks at 5 members</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                      <span className="text-sm font-semibold">{group.total_stars ?? 0}</span>
+                      <span className="text-xs text-muted-foreground">star{(group.total_stars ?? 0) !== 1 ? "s" : ""}</span>
+                    </div>
+                  </div>
+                  {info.levelingUnlocked && (
+                    <div className="mt-2">
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                        <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${Math.min(info.progress * 100, 100)}%` }} />
+                      </div>
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        {info.starsEarned}/{info.starsRequired} stars to level {info.level + 1}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </>
         )}
       </section>
@@ -342,10 +387,11 @@ function GroupDetailPage() {
             <ol className="space-y-2">
               {mediaItems.filter((i) => !(i as any).is_hidden).map((item, idx) => {
                 const poster = item.tmdb_poster_path ? tmdbPosterUrl(item.tmdb_poster_path, "w154") : item.poster_url;
+                const isStarred = starredMediaIds.has(item.id);
                 return (
                   <li key={item.id}>
                     <Link to="/media/$groupId/$mediaId" params={{ groupId, mediaId: item.id }}
-                      className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-3 text-left transition-colors hover:bg-muted">
+                      className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition-colors hover:bg-muted ${isStarred ? "border-amber-400/40 bg-amber-50/50 dark:bg-amber-950/20" : "border-border bg-card"}`}>
                       <span className="w-5 shrink-0 text-center text-sm font-bold text-muted-foreground">{idx + 1}</span>
                       {poster ? <img src={poster} alt={item.title} className="h-16 w-11 shrink-0 rounded-md object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : (
                         <div className="flex h-16 w-11 shrink-0 items-center justify-center rounded-md bg-muted">
@@ -353,7 +399,10 @@ function GroupDetailPage() {
                         </div>
                       )}
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold">{item.title}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="truncate text-sm font-semibold">{item.title}</p>
+                          {isStarred && <Star className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400" />}
+                        </div>
                         <p className="mt-0.5 text-[11px] uppercase tracking-wider text-muted-foreground">{item.media_type} · {item.year ?? "—"} · {item.review_count} {item.review_count === 1 ? "rating" : "ratings"}</p>
                       </div>
                       {item.review_count > 0 ? <ScoreBadge score={item.avg} size="md" /> : <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">—</span>}

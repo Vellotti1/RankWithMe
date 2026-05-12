@@ -2,19 +2,21 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/auth-context";
-import { supabase, SUPABASE_URL, SUPABASE_KEY, tmdbPosterUrl, type PersonalReview } from "@/lib/supabase";
+import { supabase, SUPABASE_URL, SUPABASE_KEY, tmdbPosterUrl, type PersonalReview, recalculateGroupStars } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Slider } from "@/components/ui/slider";
-import { Textarea } from "@/components/ui/textarea";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScoreBadge } from "@/components/ScoreBadge";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { ReviewForm } from "@/components/ReviewForm";
+import { VoiceReviewPlayer } from "@/components/VoiceReviewPlayer";
 import { Search, X, Film, Tv, Star, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/review")({
   component: ReviewPage,
 });
+
+type ReviewMode = "text" | "voice";
 
 interface TmdbResult {
   tmdb_id: number;
@@ -40,6 +42,7 @@ function ReviewPage() {
   const [selectedResult, setSelectedResult] = useState<TmdbResult | null>(null);
   const [draftScore, setDraftScore] = useState(80);
   const [draftText, setDraftText] = useState("");
+  const [reviewType, setReviewType] = useState<ReviewMode>("text");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -82,6 +85,7 @@ function ReviewPage() {
     setSelectedResult(result);
     setDraftScore(existing?.score ?? 80);
     setDraftText(existing?.text ?? "");
+    setReviewType((existing as any)?.review_type === "voice" ? "voice" : "text");
     setSheetOpen(true);
   }
 
@@ -95,15 +99,16 @@ function ReviewPage() {
       description: review.description,
     });
     setDraftScore(review.score);
-    setDraftText(review.text);
+    setDraftText((review as any).review_type === "voice" ? "" : review.text);
+    setReviewType((review as any).review_type === "voice" ? "voice" : "text");
     setSheetOpen(true);
   }
 
-  async function handleSave() {
+  async function handleSave(data: { score: number; review_type: ReviewMode; text: string; voice_audio_url: string | null; voice_duration_seconds: number | null }) {
     if (!user || !selectedResult) return;
     setSaving(true);
 
-    const reviewData = {
+    const reviewData: Record<string, any> = {
       user_id: user.id,
       tmdb_id: selectedResult.tmdb_id,
       title: selectedResult.title,
@@ -111,14 +116,19 @@ function ReviewPage() {
       year: selectedResult.year ? parseInt(selectedResult.year) : null,
       poster_path: selectedResult.poster_path,
       description: selectedResult.description,
-      score: draftScore,
-      text: draftText,
+      score: data.score,
+      text: data.review_type === "text" ? data.text : "",
+      review_type: data.review_type,
+      voice_audio_url: data.review_type === "voice" ? data.voice_audio_url : null,
+      voice_duration_seconds: data.review_type === "voice" ? data.voice_duration_seconds : null,
       updated_at: new Date().toISOString(),
     };
 
-    const { error } = await supabase
+    const { data: upserted, error } = await supabase
       .from("personal_reviews")
-      .upsert(reviewData, { onConflict: "user_id,tmdb_id" });
+      .upsert(reviewData, { onConflict: "user_id,tmdb_id" })
+      .select()
+      .maybeSingle();
 
     if (error) {
       toast.error("Failed to save review.");
@@ -126,7 +136,7 @@ function ReviewPage() {
       return;
     }
 
-    // Auto-add to all groups the user is in (if not already there)
+    // Auto-add to all groups the user is in
     const { data: memberships } = await supabase
       .from("group_members")
       .select("group_id")
@@ -134,7 +144,6 @@ function ReviewPage() {
 
     if (memberships?.length) {
       for (const m of memberships) {
-        // Check if media item already exists in this group
         const { data: existing } = await supabase
           .from("media_items")
           .select("id")
@@ -145,7 +154,6 @@ function ReviewPage() {
         let mediaItemId: string;
 
         if (!existing) {
-          // Add to group
           const { data: newItem } = await supabase
             .from("media_items")
             .insert({
@@ -166,14 +174,57 @@ function ReviewPage() {
           mediaItemId = existing.id;
         }
 
-        // Upsert group review
         if (mediaItemId) {
-          await supabase.from("reviews").upsert(
-            { media_item_id: mediaItemId, user_id: user.id, score: draftScore, text: draftText, updated_at: new Date().toISOString() },
+          const groupReviewData: Record<string, any> = {
+            media_item_id: mediaItemId,
+            user_id: user.id,
+            score: data.score,
+            text: data.review_type === "text" ? data.text : "",
+            review_type: data.review_type,
+            voice_audio_url: data.review_type === "voice" ? data.voice_audio_url : null,
+            voice_duration_seconds: data.review_type === "voice" ? data.voice_duration_seconds : null,
+            updated_at: new Date().toISOString(),
+          };
+          const { data: groupReview } = await supabase.from("reviews").upsert(
+            groupReviewData,
             { onConflict: "media_item_id,user_id" }
-          );
+          ).select().maybeSingle();
+
+          // Trigger voice summary for group review
+          if (data.review_type === "voice" && groupReview) {
+            fetch(`${SUPABASE_URL}/functions/v1/voice-summary`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_KEY}` },
+              body: JSON.stringify({
+                review_id: groupReview.id,
+                table: "reviews",
+                user_id: user.id,
+                title: selectedResult.title,
+                media_type: selectedResult.media_type,
+                duration_seconds: data.voice_duration_seconds ?? 0,
+              }),
+            }).catch(() => {});
+          }
         }
+
+        recalculateGroupStars(m.group_id).catch(() => {});
       }
+    }
+
+    // Trigger voice summary for personal review
+    if (data.review_type === "voice" && upserted) {
+      fetch(`${SUPABASE_URL}/functions/v1/voice-summary`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_KEY}` },
+        body: JSON.stringify({
+          review_id: upserted.id,
+          table: "personal_reviews",
+          user_id: user.id,
+          title: selectedResult.title,
+          media_type: selectedResult.media_type,
+          duration_seconds: data.voice_duration_seconds ?? 0,
+        }),
+      }).catch(() => {});
     }
 
     setSaving(false);
@@ -271,6 +322,7 @@ function ReviewPage() {
             <div className="space-y-2">
               {myReviews.map((r) => {
                 const poster = r.poster_path ? tmdbPosterUrl(r.poster_path, "w92") : null;
+                const isVoice = (r as any).review_type === "voice";
                 return (
                   <button
                     key={r.id}
@@ -288,7 +340,11 @@ function ReviewPage() {
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold">{r.title}</p>
                       <p className="text-[11px] uppercase tracking-wider text-muted-foreground">{r.media_type} · {r.year ?? "—"}</p>
-                      {r.text && <p className="mt-0.5 text-xs text-muted-foreground line-clamp-1">{r.text}</p>}
+                      {isVoice ? (
+                        <p className="mt-0.5 text-xs text-primary font-medium">Voice review · {(r as any).voice_duration_seconds ?? 0}s</p>
+                      ) : (
+                        r.text && <p className="mt-0.5 text-xs text-muted-foreground line-clamp-1">{r.text}</p>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       <ScoreBadge score={r.score} size="sm" />
@@ -304,7 +360,7 @@ function ReviewPage() {
 
       {/* Rate sheet */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent side="bottom" className="rounded-t-3xl border-border bg-card">
+        <SheetContent side="bottom" className="rounded-t-3xl border-border bg-card max-h-[85vh] overflow-y-auto">
           <SheetHeader>
             <SheetTitle className="text-left">
               <span className="block text-xs font-normal text-muted-foreground">
@@ -313,17 +369,22 @@ function ReviewPage() {
               {selectedResult?.title}
             </SheetTitle>
           </SheetHeader>
-          <div className="mt-4 space-y-4 pb-6">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium">Your score</p>
-              <ScoreBadge score={draftScore} size="lg" />
-            </div>
-            <Slider value={[draftScore]} onValueChange={(v) => setDraftScore(v[0])} min={0} max={100} step={1} />
-            <div className="flex justify-between text-xs text-muted-foreground"><span>0</span><span>50</span><span>100</span></div>
-            <Textarea value={draftText} onChange={(e) => setDraftText(e.target.value)} placeholder="Write a review…" className="resize-none bg-background" rows={4} />
-            <Button className="w-full" onClick={handleSave} disabled={saving}>
-              {saving ? "Saving…" : "Save review"}
-            </Button>
+          <div className="mt-4 pb-6">
+            <ReviewForm
+              score={draftScore}
+              onScoreChange={setDraftScore}
+              text={draftText}
+              onTextChange={setDraftText}
+              reviewType={reviewType}
+              onReviewTypeChange={setReviewType}
+              onSave={handleSave}
+              saving={saving}
+              saveLabel="Save review"
+              textPlaceholder="Write a review…"
+              mediaTitle={selectedResult?.title}
+              mediaType={selectedResult?.media_type}
+              userId={user?.id ?? ""}
+            />
           </div>
         </SheetContent>
       </Sheet>

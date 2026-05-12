@@ -2,9 +2,9 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { ScoreBadge } from "@/components/ScoreBadge";
-import { Plus, Users, Copy, Globe, Lock } from "lucide-react";
+import { Plus, Users, Copy, Globe, Lock, Star, TrendingUp } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { supabase, type Group, type MediaItem, type Review } from "@/lib/supabase";
+import { supabase, type Group, type MediaItem, type Review, calcGroupLevel } from "@/lib/supabase";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/group/")({
@@ -144,6 +144,18 @@ function GroupListPage() {
                           {g.member_count} {g.member_count === 1 ? "member" : "members"}
                         </span>
                         <span>{g.item_count} titles</span>
+                        {(() => {
+                          const info = calcGroupLevel(g.total_stars ?? 0, g.member_count);
+                          return (
+                            <span className="flex items-center gap-1">
+                              {info.levelingUnlocked && info.level > 0 ? (
+                                <><TrendingUp className="h-3.5 w-3.5 text-primary" /> Lv.{info.level}</>
+                              ) : (
+                                <><Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" /> {g.total_stars ?? 0}</>
+                              )}
+                            </span>
+                          );
+                        })()}
                       </div>
                       <button
                         type="button"

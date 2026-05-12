@@ -25,6 +25,8 @@ export type Group = {
   is_public: boolean;
   view_count: number;
   image_url: string;
+  total_stars: number;
+  level: number;
   created_at: string;
 };
 
@@ -56,6 +58,10 @@ export type Review = {
   user_id: string;
   score: number;
   text: string;
+  review_type: "text" | "voice";
+  voice_audio_url: string | null;
+  voice_summary: string | null;
+  voice_duration_seconds: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -79,6 +85,10 @@ export type EpisodeReview = {
   user_id: string;
   score: number;
   text: string;
+  review_type: "text" | "voice";
+  voice_audio_url: string | null;
+  voice_summary: string | null;
+  voice_duration_seconds: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -94,6 +104,10 @@ export type PersonalReview = {
   description: string;
   score: number;
   text: string;
+  review_type: "text" | "voice";
+  voice_audio_url: string | null;
+  voice_summary: string | null;
+  voice_duration_seconds: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -111,6 +125,16 @@ export type Follow = {
   follower_id: string;
   following_id: string;
   created_at: string;
+};
+
+export type MediaAiOverview = {
+  id: string;
+  tmdb_id: number;
+  media_type: string;
+  title: string;
+  overview: string;
+  generated_at: string;
+  updated_at: string;
 };
 
 export type GroupNextToWatch = {
@@ -147,4 +171,32 @@ export async function callEdgeFunction(name: string, body: Record<string, unknow
     throw new Error(data.error || `Edge function ${name} returned ${res.status}`);
   }
   return data;
+}
+
+export type GroupLevelInfo = {
+  level: number;
+  starsEarned: number;
+  starsRequired: number;
+  progress: number;
+  levelingUnlocked: boolean;
+};
+
+export function calcGroupLevel(totalStars: number, memberCount: number): GroupLevelInfo {
+  const levelingUnlocked = memberCount >= 5;
+  if (!levelingUnlocked) {
+    return { level: 0, starsEarned: totalStars, starsRequired: 1, progress: totalStars > 0 ? 1 : 0, levelingUnlocked: false };
+  }
+  let level = 0;
+  let remaining = totalStars;
+  while (remaining >= (3 * level) + 1) {
+    remaining -= (3 * level) + 1;
+    level++;
+  }
+  const starsRequired = (3 * level) + 1;
+  const progress = starsRequired > 0 ? remaining / starsRequired : 0;
+  return { level, starsEarned: remaining, starsRequired, progress, levelingUnlocked: true };
+}
+
+export async function recalculateGroupStars(groupId: string): Promise<void> {
+  await callEdgeFunction("recalculate-group-stars", { group_id: groupId });
 }
