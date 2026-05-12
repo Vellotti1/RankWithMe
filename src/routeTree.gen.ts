@@ -9,58 +9,28 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as UserRouteImport } from './routes/user'
-import { Route as ReviewRouteImport } from './routes/review'
-import { Route as RegisterRouteImport } from './routes/register'
-import { Route as RecommendationsRouteImport } from './routes/recommendations'
-import { Route as ProfileRouteImport } from './routes/profile'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as JoinRouteImport } from './routes/join'
-import { Route as CreateRouteImport } from './routes/create'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as UserIndexRouteImport } from './routes/user.index'
-import { Route as GroupIndexRouteImport } from './routes/group.index'
-import { Route as UserUserIdRouteImport } from './routes/user.$userId'
-import { Route as PopularShowsRouteImport } from './routes/popular.shows'
-import { Route as PopularMoviesRouteImport } from './routes/popular.movies'
-import { Route as PopularGroupsRouteImport } from './routes/popular.groups'
+import { Route as CreateRouteImport } from './routes/create'
+import { Route as JoinRouteImport } from './routes/join'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as RecommendationsRouteImport } from './routes/recommendations'
+import { Route as RegisterRouteImport } from './routes/register'
+import { Route as ReviewRouteImport } from './routes/review'
+import { Route as UserRouteImport } from './routes/user'
 import { Route as GroupItemIdRouteImport } from './routes/group.$itemId'
+import { Route as PopularGroupsRouteImport } from './routes/popular.groups'
+import { Route as PopularMoviesRouteImport } from './routes/popular.movies'
+import { Route as PopularShowsRouteImport } from './routes/popular.shows'
+import { Route as UserUserIdRouteImport } from './routes/user.$userId'
+import { Route as GroupIndexRouteImport } from './routes/group.index'
+import { Route as UserIndexRouteImport } from './routes/user.index'
 import { Route as MediaGroupIdMediaIdRouteImport } from './routes/media.$groupId.$mediaId'
 import { Route as EpisodeGroupIdMediaIdEpisodeIdRouteImport } from './routes/episode.$groupId.$mediaId.$episodeId'
 
-const UserRoute = UserRouteImport.update({
-  id: '/user',
-  path: '/user',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ReviewRoute = ReviewRouteImport.update({
-  id: '/review',
-  path: '/review',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RegisterRoute = RegisterRouteImport.update({
-  id: '/register',
-  path: '/register',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RecommendationsRoute = RecommendationsRouteImport.update({
-  id: '/recommendations',
-  path: '/recommendations',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ProfileRoute = ProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const JoinRoute = JoinRouteImport.update({
-  id: '/join',
-  path: '/join',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CreateRoute = CreateRouteImport.update({
@@ -68,34 +38,44 @@ const CreateRoute = CreateRouteImport.update({
   path: '/create',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const JoinRoute = JoinRouteImport.update({
+  id: '/join',
+  path: '/join',
   getParentRoute: () => rootRouteImport,
 } as any)
-const UserIndexRoute = UserIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => UserRoute,
-} as any)
-const GroupIndexRoute = GroupIndexRouteImport.update({
-  id: '/group/',
-  path: '/group/',
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const UserUserIdRoute = UserUserIdRouteImport.update({
-  id: '/$userId',
-  path: '/$userId',
-  getParentRoute: () => UserRoute,
-} as any)
-const PopularShowsRoute = PopularShowsRouteImport.update({
-  id: '/popular/shows',
-  path: '/popular/shows',
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PopularMoviesRoute = PopularMoviesRouteImport.update({
-  id: '/popular/movies',
-  path: '/popular/movies',
+const RecommendationsRoute = RecommendationsRouteImport.update({
+  id: '/recommendations',
+  path: '/recommendations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReviewRoute = ReviewRouteImport.update({
+  id: '/review',
+  path: '/review',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UserRoute = UserRouteImport.update({
+  id: '/user',
+  path: '/user',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GroupItemIdRoute = GroupItemIdRouteImport.update({
+  id: '/group/$itemId',
+  path: '/group/$itemId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PopularGroupsRoute = PopularGroupsRouteImport.update({
@@ -103,10 +83,30 @@ const PopularGroupsRoute = PopularGroupsRouteImport.update({
   path: '/popular/groups',
   getParentRoute: () => rootRouteImport,
 } as any)
-const GroupItemIdRoute = GroupItemIdRouteImport.update({
-  id: '/group/$itemId',
-  path: '/group/$itemId',
+const PopularMoviesRoute = PopularMoviesRouteImport.update({
+  id: '/popular/movies',
+  path: '/popular/movies',
   getParentRoute: () => rootRouteImport,
+} as any)
+const PopularShowsRoute = PopularShowsRouteImport.update({
+  id: '/popular/shows',
+  path: '/popular/shows',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UserUserIdRoute = UserUserIdRouteImport.update({
+  id: '/$userId',
+  path: '/$userId',
+  getParentRoute: () => UserRoute,
+} as any)
+const GroupIndexRoute = GroupIndexRouteImport.update({
+  id: '/group/',
+  path: '/group/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UserIndexRoute = UserIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => UserRoute,
 } as any)
 const MediaGroupIdMediaIdRoute = MediaGroupIdMediaIdRouteImport.update({
   id: '/media/$groupId/$mediaId',
@@ -263,53 +263,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/user': {
-      id: '/user'
-      path: '/user'
-      fullPath: '/user'
-      preLoaderRoute: typeof UserRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/review': {
-      id: '/review'
-      path: '/review'
-      fullPath: '/review'
-      preLoaderRoute: typeof ReviewRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/register': {
-      id: '/register'
-      path: '/register'
-      fullPath: '/register'
-      preLoaderRoute: typeof RegisterRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/recommendations': {
-      id: '/recommendations'
-      path: '/recommendations'
-      fullPath: '/recommendations'
-      preLoaderRoute: typeof RecommendationsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/profile': {
-      id: '/profile'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof ProfileRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/join': {
-      id: '/join'
-      path: '/join'
-      fullPath: '/join'
-      preLoaderRoute: typeof JoinRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/create': {
@@ -319,46 +277,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CreateRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/join': {
+      id: '/join'
+      path: '/join'
+      fullPath: '/join'
+      preLoaderRoute: typeof JoinRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/user/': {
-      id: '/user/'
-      path: '/'
-      fullPath: '/user/'
-      preLoaderRoute: typeof UserIndexRouteImport
-      parentRoute: typeof UserRoute
-    }
-    '/group/': {
-      id: '/group/'
-      path: '/group'
-      fullPath: '/group/'
-      preLoaderRoute: typeof GroupIndexRouteImport
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/user/$userId': {
-      id: '/user/$userId'
-      path: '/$userId'
-      fullPath: '/user/$userId'
-      preLoaderRoute: typeof UserUserIdRouteImport
-      parentRoute: typeof UserRoute
-    }
-    '/popular/shows': {
-      id: '/popular/shows'
-      path: '/popular/shows'
-      fullPath: '/popular/shows'
-      preLoaderRoute: typeof PopularShowsRouteImport
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/popular/movies': {
-      id: '/popular/movies'
-      path: '/popular/movies'
-      fullPath: '/popular/movies'
-      preLoaderRoute: typeof PopularMoviesRouteImport
+    '/recommendations': {
+      id: '/recommendations'
+      path: '/recommendations'
+      fullPath: '/recommendations'
+      preLoaderRoute: typeof RecommendationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/review': {
+      id: '/review'
+      path: '/review'
+      fullPath: '/review'
+      preLoaderRoute: typeof ReviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/user': {
+      id: '/user'
+      path: '/user'
+      fullPath: '/user'
+      preLoaderRoute: typeof UserRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/group/$itemId': {
+      id: '/group/$itemId'
+      path: '/group/$itemId'
+      fullPath: '/group/$itemId'
+      preLoaderRoute: typeof GroupItemIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/popular/groups': {
@@ -368,12 +340,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PopularGroupsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/group/$itemId': {
-      id: '/group/$itemId'
-      path: '/group/$itemId'
-      fullPath: '/group/$itemId'
-      preLoaderRoute: typeof GroupItemIdRouteImport
+    '/popular/movies': {
+      id: '/popular/movies'
+      path: '/popular/movies'
+      fullPath: '/popular/movies'
+      preLoaderRoute: typeof PopularMoviesRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/popular/shows': {
+      id: '/popular/shows'
+      path: '/popular/shows'
+      fullPath: '/popular/shows'
+      preLoaderRoute: typeof PopularShowsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/user/$userId': {
+      id: '/user/$userId'
+      path: '/$userId'
+      fullPath: '/user/$userId'
+      preLoaderRoute: typeof UserUserIdRouteImport
+      parentRoute: typeof UserRoute
+    }
+    '/group/': {
+      id: '/group/'
+      path: '/group'
+      fullPath: '/group/'
+      preLoaderRoute: typeof GroupIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/user/': {
+      id: '/user/'
+      path: '/'
+      fullPath: '/user/'
+      preLoaderRoute: typeof UserIndexRouteImport
+      parentRoute: typeof UserRoute
     }
     '/media/$groupId/$mediaId': {
       id: '/media/$groupId/$mediaId'
