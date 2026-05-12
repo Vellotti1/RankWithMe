@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { Sparkles, Film, Tv } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { supabase, SUPABASE_URL, SUPABASE_KEY, tmdbPosterUrl, type TasteProfile } from "@/lib/supabase";
+import { supabase, SUPABASE_URL, SUPABASE_KEY, tmdbPosterUrl, callEdgeFunction, type TasteProfile } from "@/lib/supabase";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -53,12 +53,7 @@ function RecsPage() {
 
     // Fetch recommendations from edge function
     try {
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/ai-overview`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_KEY}` },
-        body: JSON.stringify({ action: "recommendations", genres: tp.genres, already_seen_tmdb_ids: seenIds }),
-      });
-      const data = await res.json();
+      const data = await callEdgeFunction("ai-overview", { action: "recommendations", genres: tp.genres, already_seen_tmdb_ids: seenIds });
       setRecs(data.results ?? []);
     } catch { setRecs([]); }
 
@@ -75,38 +70,28 @@ function RecsPage() {
       return;
     }
     try {
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/ai-overview`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_KEY}` },
-        body: JSON.stringify({
-          action: "taste_profile", user_id: user.id,
-          reviews: reviews.map((r) => ({ title: r.title, media_type: r.media_type, year: r.year, score: r.score, text: r.text })),
-        }),
+      const data = await callEdgeFunction("ai-overview", {
+        action: "taste_profile", user_id: user.id,
+        reviews: reviews.map((r) => ({ title: r.title, media_type: r.media_type, year: r.year, score: r.score, text: r.text })),
       });
-      const data = await res.json();
       if (data.summary && data.genres?.length) {
         const newProfile = { id: "", user_id: user.id, summary: data.summary, genres: data.genres, updated_at: new Date().toISOString() };
         setTasteProfile(newProfile);
         toast.success("Taste profile generated!");
-        // Load recs directly with the new genres (don't re-fetch from DB which may lag)
+        // Load recs directly with the new genres
         setRecsLoading(true);
         const { data: personalReviews } = await supabase.from("personal_reviews").select("tmdb_id").eq("user_id", user.id);
         const seenIds = personalReviews?.map((r) => r.tmdb_id) ?? [];
         try {
-          const recsRes = await fetch(`${SUPABASE_URL}/functions/v1/ai-overview`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_KEY}` },
-            body: JSON.stringify({ action: "recommendations", genres: data.genres, already_seen_tmdb_ids: seenIds }),
-          });
-          const recsData = await recsRes.json();
+          const recsData = await callEdgeFunction("ai-overview", { action: "recommendations", genres: data.genres, already_seen_tmdb_ids: seenIds });
           setRecs(recsData.results ?? []);
         } catch { setRecs([]); }
         setRecsLoading(false);
       } else {
         toast.error("Could not generate taste profile. Try adding more reviews.");
       }
-    } catch {
-      toast.error("Failed to connect to AI service.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to connect to AI service.");
     }
     setGenerating(false);
   }

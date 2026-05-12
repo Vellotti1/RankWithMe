@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useAuth } from "@/lib/auth-context";
 import {
-  supabase, tmdbPosterUrl, tmdbStillUrl,
+  supabase, tmdbPosterUrl, tmdbStillUrl, callEdgeFunction,
   type MediaItem, type Profile, type Review, type Episode,
 } from "@/lib/supabase";
 import { ChevronLeft, Film, Tv, Star, Sparkles, Users, ChevronRight, ChevronDown } from "lucide-react";
@@ -88,23 +88,18 @@ function MediaDetailPage() {
     if (!item) return;
     setOverviewLoading(true);
     try {
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/ai-overview`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_KEY}` },
-        body: JSON.stringify({
-          title: item.title,
-          media_type: item.media_type,
-          reviews: reviews.map((r) => ({
-            username: r.profiles?.display_name || r.profiles?.username || "Someone",
-            score: r.score,
-            text: r.text,
-          })),
-        }),
+      const data = await callEdgeFunction("ai-overview", {
+        title: item.title,
+        media_type: item.media_type,
+        reviews: reviews.map((r) => ({
+          username: r.profiles?.display_name || r.profiles?.username || "Someone",
+          score: r.score,
+          text: r.text,
+        })),
       });
-      const data = await res.json();
       setOverview(data.overview ?? null);
     } catch {
-      // silently fail — no toast for auto-load
+      setOverview(null);
     }
     setOverviewLoading(false);
   }

@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
 import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/auth-context";
-import { supabase, SUPABASE_URL, SUPABASE_KEY, tmdbPosterUrl, type Profile, type PersonalReview, type TasteProfile } from "@/lib/supabase";
+import { supabase, SUPABASE_URL, SUPABASE_KEY, tmdbPosterUrl, callEdgeFunction, type Profile, type PersonalReview, type TasteProfile } from "@/lib/supabase";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, Film, Tv, Sparkles, UserPlus, UserCheck, Users } from "lucide-react";
@@ -84,17 +84,14 @@ function FriendProfilePage() {
   async function loadAiOverview(revs: PersonalReview[]) {
     setAiLoading(true);
     try {
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/ai-overview`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_KEY}` },
-        body: JSON.stringify({
-          action: "profile_overview",
-          reviews: revs.slice(0, 20).map((r) => ({ title: r.title, media_type: r.media_type, year: r.year, score: r.score, text: r.text })),
-        }),
+      const data = await callEdgeFunction("ai-overview", {
+        action: "profile_overview",
+        reviews: revs.slice(0, 20).map((r) => ({ title: r.title, media_type: r.media_type, year: r.year, score: r.score, text: r.text })),
       });
-      const data = await res.json();
       setAiOverview(data.overview ?? null);
-    } catch { /* silent */ }
+    } catch {
+      setAiOverview(null);
+    }
     setAiLoading(false);
   }
 

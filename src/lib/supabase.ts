@@ -135,3 +135,16 @@ export function tmdbStillUrl(path: string | null | undefined, size = 'w300'): st
   if (!path) return '';
   return `https://image.tmdb.org/t/p/${size}${path}`;
 }
+
+export async function callEdgeFunction(name: string, body: Record<string, unknown>): Promise<any> {
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/${name}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_KEY}` },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok || data.error) {
+    throw new Error(data.error || `Edge function ${name} returned ${res.status}`);
+  }
+  return data;
+}

@@ -72,6 +72,9 @@ function GroupDetailPage() {
   const [chatSending, setChatSending] = useState(false);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
+  // Members sheet
+  const [membersOpen, setMembersOpen] = useState(false);
+
   // Hidden items state (for owner UI)
   const [showHiddenPanel, setShowHiddenPanel] = useState(false);
 
@@ -292,9 +295,9 @@ function GroupDetailPage() {
               )}
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <button type="button" onClick={() => setMembersOpen(true)} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
                 <Users className="h-4 w-4" /><span>{members.length} {members.length === 1 ? "member" : "members"}</span>
-              </div>
+              </button>
               {group && (
                 <button type="button" onClick={() => { navigator.clipboard.writeText(group.invite_code); toast.success("Invite code copied!"); }}
                   className="flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 text-xs font-mono font-semibold hover:bg-muted">
@@ -697,6 +700,43 @@ function GroupDetailPage() {
             <Button className="w-full" onClick={handleSaveWatched} disabled={watchedSaving}>
               {watchedSaving ? "Saving…" : "Save"}
             </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Members sheet */}
+      <Sheet open={membersOpen} onOpenChange={setMembersOpen}>
+        <SheetContent side="bottom" className="rounded-t-3xl border-border bg-card max-h-[80vh] overflow-y-auto">
+          <SheetHeader><SheetTitle>Members</SheetTitle></SheetHeader>
+          <div className="mt-4 space-y-2 pb-6">
+            {members.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">No members found.</p>
+            ) : members.map((m) => (
+              <div key={m.id} className="flex items-center justify-between rounded-xl border border-border bg-background px-3 py-2.5">
+                {m.user_id === user.id ? (
+                  <Link to="/user" onClick={() => setMembersOpen(false)} className="flex items-center gap-2.5 hover:opacity-80 transition-opacity min-w-0 flex-1">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+                      {(m.profiles?.display_name || m.profiles?.username || "?").slice(0, 2).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{m.profiles?.display_name || m.profiles?.username}<span className="ml-1.5 text-xs text-muted-foreground">(you)</span></p>
+                      <p className="text-xs capitalize text-muted-foreground">{m.role}</p>
+                    </div>
+                  </Link>
+                ) : (
+                  <Link to="/user/$userId" params={{ userId: m.user_id }} onClick={() => setMembersOpen(false)} className="flex items-center gap-2.5 hover:opacity-80 transition-opacity min-w-0 flex-1">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+                      {(m.profiles?.display_name || m.profiles?.username || "?").slice(0, 2).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{m.profiles?.display_name || m.profiles?.username}</p>
+                      <p className="text-xs capitalize text-muted-foreground">{m.role}</p>
+                    </div>
+                  </Link>
+                )}
+                {m.role === "owner" && <Crown className="h-4 w-4 text-amber-500 shrink-0" />}
+              </div>
+            ))}
           </div>
         </SheetContent>
       </Sheet>

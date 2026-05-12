@@ -7,29 +7,32 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-async function callClaude(key: string, prompt: string, maxTokens = 256): Promise<string | null> {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+async function callGroq(key: string, prompt: string, maxTokens = 256): Promise<string | null> {
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
-      "x-api-key": key,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
+      "Authorization": `Bearer ${key}`,
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "claude-haiku-4-5",
+      model: "llama-3.1-8b-instant",
       max_tokens: maxTokens,
+      temperature: 0.7,
       messages: [{ role: "user", content: prompt }],
     }),
   });
   if (!res.ok) {
     const errText = await res.text();
-    throw new Error(`Anthropic API error ${res.status}: ${errText}`);
+    throw new Error(`Groq API error ${res.status}: ${errText}`);
   }
   const data = await res.json();
-  return data.content?.[0]?.text ?? null;
+  const text = data.choices?.[0]?.message?.content ?? null;
+  if (!text) {
+    throw new Error(`Groq returned no text (response: ${JSON.stringify(data).slice(0, 200)})`);
+  }
+  return text;
 }
 
-// Strip markdown code fences that Claude sometimes wraps JSON in
 function extractJson(text: string): string {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (fenced) return fenced[1].trim();
@@ -42,9 +45,9 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const ANTHROPIC_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!ANTHROPIC_KEY) {
-      return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY not configured" }), {
+    const GROQ_KEY = Deno.env.get("GROQ_API_KEY");
+    if (!GROQ_KEY) {
+      return new Response(JSON.stringify({ error: "GROQ_API_KEY not configured" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -72,7 +75,7 @@ ${reviewLines}
 
 Write a short, natural 2-3 sentence group consensus summary. Mention the average score sentiment, highlight any strong agreements or disagreements, and keep it conversational and fun. Do not use bullet points or headers.`;
 
-      const overview = await callClaude(ANTHROPIC_KEY, prompt);
+      const overview = await callGroq(GROQ_KEY, prompt);
       return new Response(JSON.stringify({ overview }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -104,7 +107,7 @@ Respond with JSON only (no markdown fences, no explanation):
 
 Genres must be from this list: Action, Adventure, Animation, Comedy, Crime, Documentary, Drama, Fantasy, Horror, Mystery, Romance, Sci-Fi, Thriller, Western`;
 
-      const text = await callClaude(ANTHROPIC_KEY, prompt, 512);
+      const text = await callGroq(GROQ_KEY, prompt, 512);
       if (!text) {
         return new Response(JSON.stringify({ summary: null, genres: [] }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -128,7 +131,6 @@ Genres must be from this list: Action, Adventure, Animation, Comedy, Crime, Docu
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       } catch (parseErr) {
-        // Claude returned non-JSON — surface it as an error so it's visible
         return new Response(JSON.stringify({ error: `JSON parse failed: ${parseErr}`, raw: text }), {
           status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -215,7 +217,7 @@ Genres must be from this list: Action, Adventure, Animation, Comedy, Crime, Docu
 Ratings:
 ${reviewLines}`;
 
-      const overview = await callClaude(ANTHROPIC_KEY, prompt, 300);
+      const overview = await callGroq(GROQ_KEY, prompt, 300);
       return new Response(JSON.stringify({ overview }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

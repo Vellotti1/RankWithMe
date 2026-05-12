@@ -18,6 +18,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as JoinRouteImport } from './routes/join'
 import { Route as CreateRouteImport } from './routes/create'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as UserIndexRouteImport } from './routes/user.index'
 import { Route as GroupIndexRouteImport } from './routes/group.index'
 import { Route as UserUserIdRouteImport } from './routes/user.$userId'
 import { Route as PopularShowsRouteImport } from './routes/popular.shows'
@@ -71,6 +72,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const UserIndexRoute = UserIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => UserRoute,
 } as any)
 const GroupIndexRoute = GroupIndexRouteImport.update({
   id: '/group/',
@@ -130,6 +136,7 @@ export interface FileRoutesByFullPath {
   '/popular/shows': typeof PopularShowsRoute
   '/user/$userId': typeof UserUserIdRoute
   '/group/': typeof GroupIndexRoute
+  '/user/': typeof UserIndexRoute
   '/media/$groupId/$mediaId': typeof MediaGroupIdMediaIdRoute
   '/episode/$groupId/$mediaId/$episodeId': typeof EpisodeGroupIdMediaIdEpisodeIdRoute
 }
@@ -142,13 +149,13 @@ export interface FileRoutesByTo {
   '/recommendations': typeof RecommendationsRoute
   '/register': typeof RegisterRoute
   '/review': typeof ReviewRoute
-  '/user': typeof UserRouteWithChildren
   '/group/$itemId': typeof GroupItemIdRoute
   '/popular/groups': typeof PopularGroupsRoute
   '/popular/movies': typeof PopularMoviesRoute
   '/popular/shows': typeof PopularShowsRoute
   '/user/$userId': typeof UserUserIdRoute
   '/group': typeof GroupIndexRoute
+  '/user': typeof UserIndexRoute
   '/media/$groupId/$mediaId': typeof MediaGroupIdMediaIdRoute
   '/episode/$groupId/$mediaId/$episodeId': typeof EpisodeGroupIdMediaIdEpisodeIdRoute
 }
@@ -169,6 +176,7 @@ export interface FileRoutesById {
   '/popular/shows': typeof PopularShowsRoute
   '/user/$userId': typeof UserUserIdRoute
   '/group/': typeof GroupIndexRoute
+  '/user/': typeof UserIndexRoute
   '/media/$groupId/$mediaId': typeof MediaGroupIdMediaIdRoute
   '/episode/$groupId/$mediaId/$episodeId': typeof EpisodeGroupIdMediaIdEpisodeIdRoute
 }
@@ -190,6 +198,7 @@ export interface FileRouteTypes {
     | '/popular/shows'
     | '/user/$userId'
     | '/group/'
+    | '/user/'
     | '/media/$groupId/$mediaId'
     | '/episode/$groupId/$mediaId/$episodeId'
   fileRoutesByTo: FileRoutesByTo
@@ -202,13 +211,13 @@ export interface FileRouteTypes {
     | '/recommendations'
     | '/register'
     | '/review'
-    | '/user'
     | '/group/$itemId'
     | '/popular/groups'
     | '/popular/movies'
     | '/popular/shows'
     | '/user/$userId'
     | '/group'
+    | '/user'
     | '/media/$groupId/$mediaId'
     | '/episode/$groupId/$mediaId/$episodeId'
   id:
@@ -228,6 +237,7 @@ export interface FileRouteTypes {
     | '/popular/shows'
     | '/user/$userId'
     | '/group/'
+    | '/user/'
     | '/media/$groupId/$mediaId'
     | '/episode/$groupId/$mediaId/$episodeId'
   fileRoutesById: FileRoutesById
@@ -316,6 +326,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/user/': {
+      id: '/user/'
+      path: '/'
+      fullPath: '/user/'
+      preLoaderRoute: typeof UserIndexRouteImport
+      parentRoute: typeof UserRoute
+    }
     '/group/': {
       id: '/group/'
       path: '/group'
@@ -377,10 +394,12 @@ declare module '@tanstack/react-router' {
 
 interface UserRouteChildren {
   UserUserIdRoute: typeof UserUserIdRoute
+  UserIndexRoute: typeof UserIndexRoute
 }
 
 const UserRouteChildren: UserRouteChildren = {
   UserUserIdRoute: UserUserIdRoute,
+  UserIndexRoute: UserIndexRoute,
 }
 
 const UserRouteWithChildren = UserRoute._addFileChildren(UserRouteChildren)
