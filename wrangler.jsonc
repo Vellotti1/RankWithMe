@@ -1,7 +1,7 @@
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
+  "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "kritiq",
-  "compatibility_date": "2025-09-24",
+  "compatibility_date": "2026-05-11",
   "compatibility_flags": ["nodejs_compat"],
-  "main": "src/server.ts"
+  "main": "@tanstack/react-start/server-entry"
 }
